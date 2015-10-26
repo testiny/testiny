@@ -40,4 +40,3 @@ class TestProject(TestinyTestCase):
         client = self.get_keystone_v3_client(project_name=CONF.admin_project)
         projects = [p.name for p in client.projects.list()]
         self.assertIn(project_fixture.name, projects)
-

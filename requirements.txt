@@ -1,2 +1,2 @@
-python-keystoneclient
-pyyaml
+
+-e .
