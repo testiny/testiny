@@ -14,7 +14,6 @@
 #
 # Author(s): Julian Edwards
 
-# TODO:
 """A fixture that creates a project in Openstack."""
 
 from __future__ import (
@@ -30,6 +29,7 @@ __all__ = []
 
 import fixtures
 from testiny.clients import get_keystone_v3_client
+from testiny.config import CONF
 from testtools.content import text_content
 
 
@@ -40,10 +40,12 @@ class ProjectFixture(fixtures.Fixture):
     """
     def _setUp(self):
         self.name = "testiny-XXXXX"  # TODO: random
-        self.keystone = get_keystone_v3_client()
-        self.keystone.projects.create(name=self.name, domain='default')
-        self.addDetail('info', text_content('Project %s created'))
+        self.keystone = get_keystone_v3_client(project_name=CONF.admin_project)
+        self.project = self.keystone.projects.create(
+            name=self.name, domain='default')
+        self.addDetail('info', text_content('Project %s created' % self.name))
         self.addCleanup(self.delete_project)
+        return self.project
 
     def delete_project(self):
-        self.keystone.projects.delete(project=self.name)
+        self.keystone.projects.delete(project=self.project)

@@ -30,11 +30,17 @@ str = None
 __metaclass__ = type
 __all__ = []
 
+from keystoneclient.auth import identity
 from keystoneclient import v3 as keystone_v3
+from keystoneclient import session
 from testiny.config import CONF
 
 
-def get_keystone_v3_client(project_name=None):
-    return keystone_v3.Client(
-        auth_url=CONF.auth_url, username=CONF.username, password=CONF.password,
-        project_name=project_name)
+def get_keystone_v3_client(project_name=None, user_domain_name='default',
+                           project_domain_name='default'):
+    auth = identity.v3.Password(
+        CONF.auth_url, username=CONF.username, password=CONF.password,
+        project_name=project_name, user_domain_name=user_domain_name,
+        project_domain_name=project_domain_name)
+    sess = session.Session(auth=auth)
+    return keystone_v3.Client(version='v3', session=sess)

@@ -1,5 +1,7 @@
 fixtures
+flake8
 mock
+tempest-lib
 testrepository
 testtools
 testscenarios

@@ -27,6 +27,7 @@ str = None
 __metaclass__ = type
 __all__ = []
 
+from testiny.config import CONF
 from testiny.testcase import TestinyTestCase
 from testiny.fixtures.project import ProjectFixture
 
@@ -36,7 +37,7 @@ class TestProject(TestinyTestCase):
     def test_create(self):
         project_fixture = self.useFixture(ProjectFixture())
 
-        project = self.get_keystone_v3_client().projects.get(
-            project=project_fixture.name)
+        client = self.get_keystone_v3_client(project_name=CONF.admin_project)
+        projects = [p.name for p in client.projects.list()]
+        self.assertIn(project_fixture.name, projects)
 
-        self.assertEqual(project.name, project_fixture.name)

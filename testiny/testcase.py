@@ -55,6 +55,6 @@ class TestinyTestCase(testtools.TestCase):
         Convenience function around the TempDir fixture.
         """
         return self.useFixture(fixtures.TempDir()).path
-    
+
     def get_keystone_v3_client(self, project_name=None):
         return get_keystone_v3_client(project_name)
