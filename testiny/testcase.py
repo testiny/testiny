@@ -29,6 +29,7 @@ __all__ = []
 
 import fixtures
 import mock
+from testiny.clients import get_keystone_v3_client
 import testtools
 
 
@@ -54,9 +55,6 @@ class TestinyTestCase(testtools.TestCase):
         Convenience function around the TempDir fixture.
         """
         return self.useFixture(fixtures.TempDir()).path
-
-
-class TestinyKeystoneClientV3:
-    """Keystone v3 client with added pizazz."""
-
     
+    def get_keystone_v3_client(self, project_name=None):
+        return get_keystone_v3_client(project_name)

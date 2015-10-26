@@ -14,10 +14,7 @@
 #
 # Author(s): Julian Edwards
 
-"""Openstack API clients for Testiny.
-
-Clients are pre-authenticated using the configuration details.
-"""
+"""Test projects."""
 
 from __future__ import (
     absolute_import,
@@ -30,11 +27,16 @@ str = None
 __metaclass__ = type
 __all__ = []
 
-from keystoneclient import v3 as keystone_v3
-from testiny.config import CONF
+from testiny.testcase import TestinyTestCase
+from testiny.fixtures.project import ProjectFixture
 
 
-def get_keystone_v3_client(project_name=None):
-    return keystone_v3.Client(
-        auth_url=CONF.auth_url, username=CONF.username, password=CONF.password,
-        project_name=project_name)
+class TestProject(TestinyTestCase):
+
+    def test_create(self):
+        project_fixture = self.useFixture(ProjectFixture())
+
+        project = self.get_keystone_v3_client().projects.get(
+            project=project_fixture.name)
+
+        self.assertEqual(project.name, project_fixture.name)

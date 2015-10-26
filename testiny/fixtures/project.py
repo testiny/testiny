@@ -14,10 +14,8 @@
 #
 # Author(s): Julian Edwards
 
-"""Openstack API clients for Testiny.
-
-Clients are pre-authenticated using the configuration details.
-"""
+# TODO:
+"""A fixture that creates a project in Openstack."""
 
 from __future__ import (
     absolute_import,
@@ -30,11 +28,22 @@ str = None
 __metaclass__ = type
 __all__ = []
 
-from keystoneclient import v3 as keystone_v3
-from testiny.config import CONF
+import fixtures
+from testiny.clients import get_keystone_v3_client
+from testtools.content import text_content
 
 
-def get_keystone_v3_client(project_name=None):
-    return keystone_v3.Client(
-        auth_url=CONF.auth_url, username=CONF.username, password=CONF.password,
-        project_name=project_name)
+class ProjectFixture(fixtures.Fixture):
+    """Test fixture that creates a randomly-named project.
+
+    The name is available as the 'name' property after creation.
+    """
+    def _setUp(self):
+        self.name = "testiny-XXXXX"  # TODO: random
+        self.keystone = get_keystone_v3_client()
+        self.keystone.projects.create(name=self.name, domain='default')
+        self.addDetail('info', text_content('Project %s created'))
+        self.addCleanup(self.delete_project)
+
+    def delete_project(self):
+        self.keystone.projects.delete(project=self.name)
