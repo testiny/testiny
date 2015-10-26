@@ -1,7 +1,3 @@
-fixtures
-flake8
-mock
-tempest-lib
-testrepository
-testtools
-testscenarios
+--index-url https://pypi.python.org/simple/
+
+-e .[test]

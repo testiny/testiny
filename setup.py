@@ -1,8 +1,19 @@
-from pip.req import parse_requirements
 from setuptools import setup
 
-install_reqs = parse_requirements("requirements.txt")
-test_reqs = parse_requirements("test-requirements.txt")
+install_reqs = [
+    'python-keystoneclient',
+    'pyyaml',
+]
+
+tests_require = [
+    'fixtures',
+    'flake8',
+    'mock',
+    'tempest-lib',
+    'testrepository',
+    'testtools',
+    'testscenarios',
+]
 
 setup(
     name="testiny",
@@ -12,7 +23,8 @@ setup(
     author="Cisco",
     license="Apache",
     packages=["testiny"],
-    install_requires=[str(ir.req) for ir in install_reqs],
-    tests_require=[str(ir.req) for ir in test_reqs],
+    install_requires=install_reqs,
+    tests_require=tests_require,
+    extras_require={'test': tests_require},
     zip_safe=False,
     )
