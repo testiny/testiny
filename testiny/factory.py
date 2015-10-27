@@ -29,7 +29,11 @@ __all__ = [
     'factory',
     ]
 
-from itertools import imap
+try:
+    from itertools import imap
+except ImportError:
+    # Python 3
+    imap = map
 from itertools import islice
 from itertools import repeat
 import random
@@ -40,7 +44,7 @@ class Factory:
     """Class that defines helpers that make things for you."""
 
     random_letters = imap(
-        random.choice, repeat(string.letters + string.digits))
+        random.choice, repeat(string.ascii_letters + string.digits))
 
     def make_string(self, prefix="", size=10):
         return prefix + "".join(islice(self.random_letters, size))

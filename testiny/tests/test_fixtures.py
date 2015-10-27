@@ -43,7 +43,8 @@ class TestFixtures(TestinyTestCase):
         except keystoneclient.exceptions.ClientException as e:
             self.fail(e)
 
-        client = self.get_keystone_v3_client(project_name=CONF.admin_project)
+        client = self.get_keystone_v3_client_admin(
+            project_name=CONF.admin_project)
         projects = [p.name for p in client.projects.list()]
         self.assertIn(project_fixture.name, projects)
 
@@ -54,6 +55,7 @@ class TestFixtures(TestinyTestCase):
         except keystoneclient.exceptions.ClientException as e:
             self.fail(e)
 
-        client = self.get_keystone_v3_client(project_name=CONF.admin_project)
+        client = self.get_keystone_v3_client_admin(
+            project_name=CONF.admin_project)
         users = [p.name for p in client.users.list()]
         self.assertIn(user_fixture.name, users)
