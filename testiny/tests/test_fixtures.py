@@ -14,7 +14,7 @@
 #
 # Author(s): Julian Edwards
 
-"""Test projects."""
+"""Test fixtures."""
 
 from __future__ import (
     absolute_import,
@@ -31,11 +31,12 @@ import keystoneclient
 from testiny.config import CONF
 from testiny.testcase import TestinyTestCase
 from testiny.fixtures.project import ProjectFixture
+from testiny.fixtures.user import UserFixture
 
 
-class TestProject(TestinyTestCase):
+class TestFixtures(TestinyTestCase):
 
-    def test_create(self):
+    def test_create_project(self):
         # TODO: create a test decorator that does this try/except for you.
         try:
             project_fixture = self.useFixture(ProjectFixture())
@@ -45,3 +46,14 @@ class TestProject(TestinyTestCase):
         client = self.get_keystone_v3_client(project_name=CONF.admin_project)
         projects = [p.name for p in client.projects.list()]
         self.assertIn(project_fixture.name, projects)
+
+    def test_create_user(self):
+        # TODO: create a test decorator that does this try/except for you.
+        try:
+            user_fixture = self.useFixture(UserFixture())
+        except keystoneclient.exceptions.ClientException as e:
+            self.fail(e)
+
+        client = self.get_keystone_v3_client(project_name=CONF.admin_project)
+        users = [p.name for p in client.users.list()]
+        self.assertIn(user_fixture.name, users)
