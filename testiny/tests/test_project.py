@@ -27,6 +27,7 @@ str = None
 __metaclass__ = type
 __all__ = []
 
+import keystoneclient
 from testiny.config import CONF
 from testiny.testcase import TestinyTestCase
 from testiny.fixtures.project import ProjectFixture
@@ -35,7 +36,11 @@ from testiny.fixtures.project import ProjectFixture
 class TestProject(TestinyTestCase):
 
     def test_create(self):
-        project_fixture = self.useFixture(ProjectFixture())
+        # TODO: create a test decorator that does this try/except for you.
+        try:
+            project_fixture = self.useFixture(ProjectFixture())
+        except keystoneclient.exceptions.ClientException as e:
+            self.fail(e)
 
         client = self.get_keystone_v3_client(project_name=CONF.admin_project)
         projects = [p.name for p in client.projects.list()]

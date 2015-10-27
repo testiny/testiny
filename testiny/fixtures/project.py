@@ -38,7 +38,8 @@ class ProjectFixture(fixtures.Fixture):
 
     The name is available as the 'name' property after creation.
     """
-    def _setUp(self):
+    def setUp(self):
+        super(ProjectFixture, self).setUp()
         self.name = "testiny-XXXXX"  # TODO: random
         self.keystone = get_keystone_v3_client(project_name=CONF.admin_project)
         self.project = self.keystone.projects.create(
