@@ -30,6 +30,7 @@ __all__ = []
 import fixtures
 from testiny.clients import get_keystone_v3_client
 from testiny.config import CONF
+from testiny.factory import factory
 from testtools.content import text_content
 
 
@@ -40,7 +41,7 @@ class ProjectFixture(fixtures.Fixture):
     """
     def setUp(self):
         super(ProjectFixture, self).setUp()
-        self.name = "testiny-XXXXX"  # TODO: random
+        self.name = factory.make_string("testiny")
         self.keystone = get_keystone_v3_client(project_name=CONF.admin_project)
         self.project = self.keystone.projects.create(
             name=self.name, domain='default')

@@ -30,6 +30,7 @@ __all__ = []
 import fixtures
 import mock
 from testiny.clients import get_keystone_v3_client
+from testiny.factory import factory
 import testtools
 
 
@@ -38,6 +39,8 @@ class TestinyTestCase(testtools.TestCase):
 
     Adds some useful helpers.
     """
+
+    factory = factory
 
     def patch(self, obj, attribute, value=mock.sentinel.unset):
         """Patch obj.attribute with value, returning a Mock.
