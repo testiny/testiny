@@ -45,7 +45,8 @@ class ProjectFixture(fixtures.Fixture):
         self.keystone = get_keystone_v3_client(project_name=CONF.admin_project)
         self.project = self.keystone.projects.create(
             name=self.name, domain='default')
-        self.addDetail('info', text_content('Project %s created' % self.name))
+        self.addDetail(
+            'ProjectFixture', text_content('Project %s created' % self.name))
         self.addCleanup(self.delete_project)
         return self.project
 
