@@ -64,6 +64,11 @@ class TestinyTestCase(testtools.TestCase):
     def get_keystone_v3_client_admin(self):
         return get_keystone_v3_client(project_name=CONF.admin_project)
 
+    def get_nova_v3_client_admin(self):
+        return get_nova_v3_client(
+            user_name=CONF.username, project_name=CONF.admin_project,
+            password=CONF.password)
+
     def get_nova_v3_client(self, user_name=None, project_name=None,
                            password=None):
         return get_nova_v3_client(
