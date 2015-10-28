@@ -31,6 +31,7 @@ import fixtures
 import mock
 from testiny.clients import get_keystone_v3_client
 from testiny.clients import get_nova_v3_client
+from testiny.config import CONF
 from testiny.factory import factory
 import testtools
 
@@ -60,9 +61,10 @@ class TestinyTestCase(testtools.TestCase):
         """
         return self.useFixture(fixtures.TempDir()).path
 
-    def get_keystone_v3_client_admin(self, project_name=None):
-        return get_keystone_v3_client(project_name=project_name)
+    def get_keystone_v3_client_admin(self):
+        return get_keystone_v3_client(project_name=CONF.admin_project)
 
-    def get_nova_v3_client(self, user_name=None, project_name=None):
+    def get_nova_v3_client(self, user_name=None, project_name=None,
+                           password=None):
         return get_nova_v3_client(
-            user_name=user_name, project_name=project_name)
+            user_name=user_name, project_name=project_name, password=password)

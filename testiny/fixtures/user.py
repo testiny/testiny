@@ -43,7 +43,9 @@ class UserFixture(fixtures.Fixture):
         super(UserFixture, self).setUp()
         self.name = factory.make_string("testiny")
         self.keystone = get_keystone_v3_client(project_name=CONF.admin_project)
-        self.user = self.keystone.users.create(self.name)
+        self.password = factory.make_string("password")
+        self.user = self.keystone.users.create(
+            name=self.name, password=self.password)
         self.addDetail(
             'UserFixture', text_content('User %s created' % self.name))
         self.addCleanup(self.delete_user)

@@ -28,7 +28,10 @@ from __future__ import (
 str = None
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    'get_keystone_v3_client',
+    'get_nova_v3_client',
+    ]
 
 from keystoneclient.auth import identity
 from keystoneclient import v3 as keystone_v3
@@ -43,7 +46,8 @@ sessions = dict()
 
 def get_or_create_session(user_name=None, project_name=None,
                           user_domain_name='default',
-                          project_domain_name='default', force_new=False):
+                          project_domain_name='default', password=None,
+                          force_new=False):
     """Return a keystoneclient.session.Session object.
 
     Sessions are cached on a per (user, project) basis.  If a cached one
@@ -52,17 +56,20 @@ def get_or_create_session(user_name=None, project_name=None,
 
     If user_name is not set, defaults to the configured admin user.
     If project_name is not set, an unscoped session is created.
+    If password is not set, CONF.password is used.
     """
     global sessions
 
     if user_name is None:
         user_name = CONF.username
+    if password is None:
+        password = CONF.password
     session_key = (user_name, project_name)
     sess = sessions.get(session_key)
     if sess is not None and force_new is False:
         return sess
     auth = identity.v3.Password(
-        CONF.auth_url, username=user_name, password=CONF.password,
+        CONF.auth_url, username=user_name, password=password,
         project_name=project_name, user_domain_name=user_domain_name,
         project_domain_name=project_domain_name)
     sess = session.Session(auth=auth)
@@ -72,20 +79,20 @@ def get_or_create_session(user_name=None, project_name=None,
 
 def get_keystone_v3_client(user_name=None, project_name=None,
                            user_domain_name='default',
-                           project_domain_name='default'):
+                           project_domain_name='default', password=None):
     sess = get_or_create_session(
         user_name=user_name, project_name=project_name,
         user_domain_name=user_domain_name,
-        project_domain_name=project_domain_name)
+        project_domain_name=project_domain_name, password=password)
     return keystone_v3.Client(version='v3', session=sess)
 
 
 def get_nova_v3_client(user_name=None, project_name=None,
                        user_domain_name='default',
-                       project_domain_name='default'):
+                       project_domain_name='default', password=None):
     sess = get_or_create_session(
         user_name=user_name, project_name=project_name,
         user_domain_name=user_domain_name,
-        project_domain_name=project_domain_name)
-    #TODO: Ensure novaclient v3 available (liberty)
+        project_domain_name=project_domain_name, password=password)
+    # TODO: Ensure novaclient v3 available (liberty)
     return nova_client.Client(version='2', session=sess)
