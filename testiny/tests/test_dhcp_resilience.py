@@ -32,6 +32,7 @@ import random
 import time
 
 import keystoneclient
+from testiny.config import CONF
 from testiny.testcase import TestinyTestCase
 from testiny.fixtures.project import ProjectFixture
 from testiny.fixtures.user import UserFixture
@@ -83,12 +84,12 @@ class TestDHCPResilience(TestinyTestCase):
         return ips
 
     def create_nova_network(self, nova, project):
-        # TODO: make network CIDR configurable
-        subnet = random.randint(11,255)
-        cidr = "10.0.{subnet}.0/24".format(subnet=subnet)
+        subnet = random.randint(11, 255)
+        cidr = CONF.network['cidr'].format(subnet=subnet)
+        # TODO: handle clashes and retry.
         return nova.networks.create(
-            cidr=cidr, enable_dhcp=1, label=self.factory.make_string("network"),
-            project_id=project.id)
+            cidr=cidr, enable_dhcp=1,
+            label=self.factory.make_string("network-"), project_id=project.id)
 
     def delete_nova_network(self, nova, network):
         nova.networks.disassociate(network)
@@ -120,18 +121,19 @@ class TestDHCPResilience(TestinyTestCase):
             password=user_fixture.password)
         nova_admin = self.get_nova_v3_client_admin()
 
-        m1tiny = nova.flavors.find(name="m1.tiny")
-        image = nova.images.find(name="cirros-0.3.2-x86_64-uec")
+        m1tiny = nova.flavors.find(name=CONF.fast_image['flavor_name'])
+        image = nova.images.find(name=CONF.fast_image['image_name'])
 
-        network = self.create_nova_network(nova_admin, project=project_fixture.project)
+        network = self.create_nova_network(
+            nova_admin, project=project_fixture.project)
         self.addCleanup(self.delete_nova_network, nova_admin, network)
 
         nic = [{"net-id": network.id}]
         name = self.factory.make_string('servername')
         userdata = self.factory.make_string('userdata')
-        server = nova.servers.create(name, image, m1tiny, userdata=userdata, nics=nic)
+        server = nova.servers.create(
+            name, image, m1tiny, userdata=userdata, nics=nic)
         self.addCleanup(nova.servers.delete, server)
 
         ip = self.get_ip_address(server, network, 0)
         self.assertEqual(3, ip.count('.'))
-
