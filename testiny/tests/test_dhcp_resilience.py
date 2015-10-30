@@ -32,9 +32,11 @@ import random
 import time
 
 import keystoneclient
+import novaclient
 import six
 from testiny.config import CONF
 from testiny.testcase import TestinyTestCase
+from testiny.fixtures.neutron import NeutronNetworkFixture
 from testiny.fixtures.project import ProjectFixture
 from testiny.fixtures.user import UserFixture
 
@@ -45,7 +47,8 @@ class TestDHCPResilience(TestinyTestCase):
     # much easier to start an instance in a test case based on its
     # fixtures.
 
-    def get_ip_address(self, server, network=None, index=None, seconds=60):
+    def get_ip_address(self, server, network_label=None, index=None,
+                       seconds=60):
         """Get a server's IP address.
 
         Will poll the server for up to `seconds` in case it's still
@@ -74,8 +77,8 @@ class TestDHCPResilience(TestinyTestCase):
         if len(server.networks.keys()) == 0:
             return None
 
-        if network is not None:
-            ips = server.networks.get(network.label)
+        if network_label is not None:
+            ips = server.networks.get(network_label)
             if index is not None:
                 return ips[index]
             return ips
@@ -98,14 +101,7 @@ class TestDHCPResilience(TestinyTestCase):
         if isinstance(failure_statuses, six.string_types):
             failure_statuses = (failure_statuses,)
 
-        # Because of
-        # https://launchpad.net/python-novaclient/+bug/1494116 we
-        # can't do a simple server.manager.get(server.id)
-        try:
-            server = server.manager.get(server.id)
-        except AttributeError:
-            self.fail("server.manager.get() failed again. :(")
-            server = server.manager.get(server.id)
+        server = server.manager.get(server.id)
 
         start = datetime.datetime.utcnow()
         finish = start + datetime.timedelta(seconds=timeout)
@@ -137,8 +133,8 @@ class TestDHCPResilience(TestinyTestCase):
         network_id = network["network"]["id"]
         subnet = neutron.create_subnet(
             {"subnet": dict(
-                name=sub_name, network_id=network_id, cidr=cidr, ip_version=4)
-            })
+                name=sub_name, network_id=network_id, cidr=cidr, ip_version=4
+                )})
         return network, subnet
 
     def delete_nova_network(self, nova, network):
@@ -180,26 +176,31 @@ class TestDHCPResilience(TestinyTestCase):
         nova = self.get_nova_v3_client(
             user_name=user_fixture.name, project_name=project_fixture.name,
             password=user_fixture.password)
-        neutron_admin = self.get_neutron_client(project_name=project_fixture.name)
-        network, subnet = self.create_neutron_network(neutron_admin)
-        self.addCleanup(
-            self.delete_neutron_network, neutron_admin, network, subnet)
+        network_fixture = self.useFixture(
+            NeutronNetworkFixture(project_name=project_fixture.name))
+        network = network_fixture.network
 
         m1tiny = nova.flavors.find(name=CONF.fast_image['flavor_name'])
         image = nova.images.find(name=CONF.fast_image['image_name'])
-
-        #network = self.create_nova_network(
-        #    nova_admin, project=project_fixture.project)
-        #self.addCleanup(self.delete_nova_network, nova_admin, network)
 
         nic = [{"net-id": network["network"]["id"]}]
         name = self.factory.make_string('servername')
         userdata = self.factory.make_string('userdata')
         server = nova.servers.create(
             name, image, m1tiny, userdata=userdata, nics=nic)
-        self.addCleanup(nova.servers.delete, server)
 
-        ip = self.get_ip_address(server, network, 0)
+        def delete_server(server):
+            nova.servers.delete(server)
+            while True:
+                try:
+                    server = server.manager.get(server.id)
+                except novaclient.exceptions.NotFound:
+                    return
+                if server is None or server.status != 'ACTIVE':
+                    return
+        self.addCleanup(delete_server, server)
+
+        ip = self.get_ip_address(server, network["network"]["name"], 0)
         self.assertEqual(3, ip.count('.'))
 
         # TODO: inject a file in server.create() and ssh to the instance
