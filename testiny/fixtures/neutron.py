@@ -64,10 +64,10 @@ class NeutronNetworkFixture(fixtures.Fixture):
                 name=self.sub_name, network_id=network_id, cidr=cidr,
                 ip_version=4)})
         self.addDetail(
-            'NeutronNetworkFixture',
+            'NeutronNetworkFixture-network',
             text_content('Network %s created' % self.net_name))
         self.addDetail(
-            'NeutronNetworkFixture',
+            'NeutronNetworkFixture-subnet',
             text_content('Subnet %s created' % self.sub_name))
         self.addCleanup(self.delete_network)
 

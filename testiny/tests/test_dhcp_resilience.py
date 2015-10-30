@@ -27,123 +27,15 @@ str = None
 __metaclass__ = type
 __all__ = []
 
-import datetime
-import random
-import time
-
 import keystoneclient
-import novaclient
-import six
-from testiny.config import CONF
 from testiny.testcase import TestinyTestCase
 from testiny.fixtures.neutron import NeutronNetworkFixture
 from testiny.fixtures.project import ProjectFixture
+from testiny.fixtures.server import ServerFixture
 from testiny.fixtures.user import UserFixture
 
 
 class TestDHCPResilience(TestinyTestCase):
-
-    # TODO refactor all of these helpers somewhere else, and/or make it
-    # much easier to start an instance in a test case based on its
-    # fixtures.
-
-    def get_ip_address(self, server, network_label=None, index=None,
-                       seconds=60):
-        """Get a server's IP address.
-
-        Will poll the server for up to `seconds` in case it's still
-        starting up.
-
-        If network is not None, get the IP on that network, otherwise the
-        first network found.
-
-        If index is None, return all IPs on the network.
-
-
-        Returns None in both cases if no IP address is found.
-        """
-        self.wait_for_status(server, "ACTIVE", "ERROR")
-        start = datetime.datetime.utcnow()
-        finish = start + datetime.timedelta(seconds=seconds)
-        while datetime.datetime.utcnow() < finish:
-            # TODO.
-            # This code should work but does not. Networks never appear
-            # despite them showing in the dashboard. No idea why.
-            # print("networks: %s" % server.networks)
-            if len(server.networks.keys()) > 0:
-                break
-            time.sleep(1)
-            server = server.manager.get(server.id)  # refresh server obj
-        if len(server.networks.keys()) == 0:
-            return None
-
-        if network_label is not None:
-            ips = server.networks.get(network_label)
-            if index is not None:
-                return ips[index]
-            return ips
-
-        ips = server.networks.keys()[0]
-        if index is not None:
-            return ips[index]
-        return ips
-
-    def wait_for_status(self, server, success_statuses, failure_statuses,
-                        timeout=60):
-        """Wait until 'timeout' seconds for the required status.
-
-        Raises an exception if the server moves to one of the statuses
-        in failure_statuses.
-        """
-        # Convenience or death! Allow strings in place of iterables.
-        if isinstance(success_statuses, six.string_types):
-            success_statuses = (success_statuses,)
-        if isinstance(failure_statuses, six.string_types):
-            failure_statuses = (failure_statuses,)
-
-        server = server.manager.get(server.id)
-
-        start = datetime.datetime.utcnow()
-        finish = start + datetime.timedelta(seconds=timeout)
-        while datetime.datetime.utcnow() < finish:
-            if server.status in success_statuses:
-                return server
-            if server.status in failure_statuses:
-                raise Exception("Server failed: %s" % server.status)
-            time.sleep(1)
-            server = server.manager.get(server.id)
-        # TODO: Custom exceptions please.
-        raise Exception("Timed out waiting for server %s" % server.name)
-
-    def create_nova_network(self, nova, project):
-        subnet = random.randint(11, 255)
-        cidr = CONF.network['cidr'].format(subnet=subnet)
-        # TODO: handle clashes and retry.
-        return nova.networks.create(
-            cidr=cidr, enable_dhcp=1,
-            label=self.factory.make_string("network-"), project_id=project.id)
-
-    def create_neutron_network(self, neutron):
-        subnet = random.randint(11, 255)
-        cidr = CONF.network['cidr'].format(subnet=subnet)
-        # TODO: handle clashes and retry.
-        net_name = self.factory.make_string("network-")
-        sub_name = self.factory.make_string("subnet-")
-        network = neutron.create_network({"network": dict(name=net_name)})
-        network_id = network["network"]["id"]
-        subnet = neutron.create_subnet(
-            {"subnet": dict(
-                name=sub_name, network_id=network_id, cidr=cidr, ip_version=4
-                )})
-        return network, subnet
-
-    def delete_nova_network(self, nova, network):
-        nova.networks.disassociate(network)
-        network.delete()
-
-    def delete_neutron_network(self, neutron, network, subnet):
-        neutron.delete_subnet(subnet["subnet"]["id"])
-        neutron.delete_network(network["network"]["id"])
 
     def test_server_gets_dhcp_address(self):
         # TODO: create a test decorator that does this try/except for you.
@@ -157,7 +49,7 @@ class TestDHCPResilience(TestinyTestCase):
         except keystoneclient.exceptions.ClientException as e:
             self.fail(e)
 
-        # TODO: simplify and refactor all fixtures used below here
+        # TODO: simplify and refactor all fixtures used here
         # A single fixture that composes the others to produce a
         # project, with a user and a network would be good.
 
@@ -173,34 +65,13 @@ class TestDHCPResilience(TestinyTestCase):
             admin_role, user=admin_user,
             project=project_fixture.project)
 
-        nova = self.get_nova_v3_client(
-            user_name=user_fixture.name, project_name=project_fixture.name,
-            password=user_fixture.password)
         network_fixture = self.useFixture(
             NeutronNetworkFixture(project_name=project_fixture.name))
         network = network_fixture.network
+        server_fixture = self.useFixture(
+            ServerFixture(project_fixture, user_fixture, network_fixture))
 
-        m1tiny = nova.flavors.find(name=CONF.fast_image['flavor_name'])
-        image = nova.images.find(name=CONF.fast_image['image_name'])
-
-        nic = [{"net-id": network["network"]["id"]}]
-        name = self.factory.make_string('servername')
-        userdata = self.factory.make_string('userdata')
-        server = nova.servers.create(
-            name, image, m1tiny, userdata=userdata, nics=nic)
-
-        def delete_server(server):
-            nova.servers.delete(server)
-            while True:
-                try:
-                    server = server.manager.get(server.id)
-                except novaclient.exceptions.NotFound:
-                    return
-                if server is None or server.status != 'ACTIVE':
-                    return
-        self.addCleanup(delete_server, server)
-
-        ip = self.get_ip_address(server, network["network"]["name"], 0)
+        ip = server_fixture.get_ip_address(network["network"]["name"], 0)
         self.assertEqual(3, ip.count('.'))
 
         # TODO: inject a file in server.create() and ssh to the instance
