@@ -25,11 +25,14 @@ from __future__ import (
 str = None
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    'TestinyTestCase',
+    ]
 
 import fixtures
 import mock
 from testiny.clients import get_keystone_v3_client
+from testiny.clients import get_neutron_client
 from testiny.clients import get_nova_v3_client
 from testiny.config import CONF
 from testiny.factory import factory
@@ -73,3 +76,11 @@ class TestinyTestCase(testtools.TestCase):
                            password=None):
         return get_nova_v3_client(
             user_name=user_name, project_name=project_name, password=password)
+
+    def get_neutron_client_admin(self):
+        return get_neutron_client(
+            user_name=CONF.username, project_name=CONF.admin_project,
+            password=CONF.password)
+
+    def get_neutron_client(self, *args, **kwargs):
+        return get_neutron_client(*args, **kwargs)

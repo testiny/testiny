@@ -36,6 +36,7 @@ __all__ = [
 from keystoneclient.auth import identity
 from keystoneclient import v3 as keystone_v3
 from keystoneclient import session
+from neutronclient.neutron import client as neutron_client
 from novaclient import client as nova_client
 from testiny.config import CONF
 
@@ -77,6 +78,9 @@ def get_or_create_session(user_name=None, project_name=None,
     return sess
 
 
+# TODO: Allow client libraries to work out api versionings and remove
+# hard-coded versions from here where possible.
+
 def get_keystone_v3_client(user_name=None, project_name=None,
                            user_domain_name='default',
                            project_domain_name='default', password=None):
@@ -96,3 +100,13 @@ def get_nova_v3_client(user_name=None, project_name=None,
         project_domain_name=project_domain_name, password=password)
     # TODO: Ensure novaclient v3 available (liberty)
     return nova_client.Client(version='2', session=sess)
+
+
+def get_neutron_client(user_name=None, project_name=None,
+                       user_domain_name='default',
+                       project_domain_name='default', password=None):
+    sess = get_or_create_session(
+        user_name=user_name, project_name=project_name,
+        user_domain_name=user_domain_name,
+        project_domain_name=project_domain_name, password=password)
+    return neutron_client.Client(api_version='2.0', session=sess)

@@ -2,6 +2,7 @@ from setuptools import setup
 
 install_reqs = [
     'python-keystoneclient',
+    'python-neutronclient',
     'python-novaclient',
     'pyyaml',
 ]
