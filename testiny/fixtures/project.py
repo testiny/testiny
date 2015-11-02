@@ -50,9 +50,9 @@ class ProjectFixture(fixtures.Fixture):
         self.addDetail(
             'ProjectFixture', text_content('Project %s created' % self.name))
 
-        # Automatically give the admin user an admin role on this
-        # project.
-        self.admin_user = self.keystone.users.find(name="admin")
+        # Make an admin for the project.
+        self.admin_user_fixture = self.useFixture(UserFixture())
+        self.admin_user = self.admin_user_fixture.user
         self.add_user_to_role(self.admin_user, "admin")
 
         self.addCleanup(self.delete_project)
@@ -75,7 +75,14 @@ class ProjectFixture(fixtures.Fixture):
         role = self.keystone.roles.find(name=role_name)
         self.keystone.roles.grant(
             role, user=user, project=self.project)
-        self.addCleanup(self.delete_role_grant, role, user, self.project)
+        self.addCleanup(self.delete_role_grant, user, role)
 
     def delete_role_grant(self, user, role):
+        # There seems to be a bug in testtools where the cleanups are
+        # not called in the right order when there's been a test
+        # failure. The user always seems to have been deleted before
+        # this code is called.
+        # Ignore this for now, but role assignments are likely to build
+        # up. :(
+        return
         self.keystone.roles.revoke(role, user=user, project=self.project)

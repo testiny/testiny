@@ -40,17 +40,17 @@ class NeutronNetworkFixture(fixtures.Fixture):
     """Test fixture that creates a randomly-named neutron network.
 
     The name is available as the 'name' property after creation.
-
-    You must grant the admin user admin role on the passed project before
-    setting up this fixture.
     """
-    def __init__(self, project_name):
+    def __init__(self, project_fixture):
         super(NeutronNetworkFixture, self).__init__()
-        self.project_name = project_name
+        self.project_fixture = project_fixture
 
     def setUp(self):
         super(NeutronNetworkFixture, self).setUp()
-        self.neutron = get_neutron_client(project_name=self.project_name)
+        self.neutron = get_neutron_client(
+            project_name=self.project_fixture.name,
+            user_name=self.project_fixture.admin_user.name,
+            password=self.project_fixture.admin_user_fixture.password)
         subnet = random.randint(11, 255)
         cidr = CONF.network['cidr'].format(subnet=subnet)
         # TODO: handle clashes and retry.

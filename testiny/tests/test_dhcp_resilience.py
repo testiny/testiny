@@ -57,7 +57,7 @@ class TestDHCPResilience(TestinyTestCase):
         project_fixture.add_user_to_role(user_fixture, 'Member')
 
         network_fixture = self.useFixture(
-            NeutronNetworkFixture(project_name=project_fixture.name))
+            NeutronNetworkFixture(project_fixture=project_fixture))
 
         # Create a keypair.
         keypair_fixture = self.useFixture(
