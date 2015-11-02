@@ -25,9 +25,15 @@ from __future__ import (
 str = None
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    "KeypairFixture",
+    "ServerFixture",
+    "ServerStatusError",
+    "TimeoutError",
+    ]
 
 import datetime
+import subprocess
 import time
 
 import fixtures
@@ -37,6 +43,14 @@ from testiny.clients import get_nova_v3_client
 from testiny.config import CONF
 from testiny.factory import factory
 from testtools.content import text_content
+
+
+class TimeoutError(Exception):
+    """Raised when the timeout is exceeded for an ssh call."""
+
+
+class ServerStatusError(Exception):
+    """Raised when a server moves into an error state."""
 
 
 class ServerFixture(fixtures.Fixture):
@@ -101,10 +115,10 @@ class ServerFixture(fixtures.Fixture):
 
         # Poll until there is a network attached.
         while datetime.datetime.utcnow() < finish:
-            if len(self.server.networks.keys()) > 0:
+            server = self.server.manager.get(self.server.id)
+            if len(server.networks.keys()) > 0:
                 break
             time.sleep(1)
-            server = self.server.manager.get(self.server.id)
         if len(server.networks.keys()) == 0:
             return None
 
@@ -116,7 +130,8 @@ class ServerFixture(fixtures.Fixture):
             return ips
 
         # Return the first network's IP(s)
-        ips = server.networks.keys()[0]
+        ip_item = server.networks.popitem()
+        ips = ip_item[1]
         if index is not None:
             return ips[index]
         return ips
@@ -145,5 +160,64 @@ class ServerFixture(fixtures.Fixture):
                 raise Exception("Server failed: %s" % server.status)
             time.sleep(1)
             server = server.manager.get(server.id)
-        # TODO: Custom exceptions please.
-        raise Exception("Timed out waiting for server %s" % server.name)
+        raise ServerStatusError(
+            "Timed out waiting for server %s" % server.name)
+
+    def run_command(self, command, user_name, key_file_name, timeout=60):
+        """Use SSH to run the specified command on this server.
+
+        :param command: The command and its args as a string.
+        :param timeout: In seconds, the before before which this command must
+            complete, else a fixtures.server.TimeoutError is raised.
+        :return: (stdout, stderr, return_code) from the command's process.
+            stdout and stderr are a list of lines as returned by readlines().
+        """
+        ip = self.get_ip_address()
+        ssh = subprocess.Popen(
+            ["ssh", "-i", key_file_name, "%s@%s" % (user_name, ip), command],
+            shell=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+
+        # Python 3 has a timeout parameter for subprocess, but we want
+        # to remain compatible with Python 2 for now.
+        start = datetime.datetime.utcnow()
+        finish = start + datetime.timedelta(seconds=timeout)
+        while datetime.datetime.utcnow() < finish:
+            ssh.poll()
+            if ssh.returncode is not None:
+                return (
+                    ssh.stdout.readlines(), ssh.stderr.readlines(),
+                    ssh.returncode)
+
+        raise TimeoutError
+
+
+class KeypairFixture(fixtures.Fixture):
+    """Test fixture that creates a random keypair."""
+
+    def __init__(self, project_fixture, user_fixture):
+        super(KeypairFixture, self).__init__()
+        self.user_fixture = user_fixture
+        self.project_fixture = project_fixture
+
+    def setUp(self):
+        super(KeypairFixture, self).setUp()
+        self.nova = get_nova_v3_client(
+            user_name=self.user_fixture.name,
+            project_name=self.project_fixture.name,
+            password=self.user_fixture.password)
+        self.name = factory.make_string('keypair')
+        self.keypair = self.nova.keypairs.create(name=self.name)
+        self.addCleanup(self.delete_keypair)
+
+        self.addDetail(
+            'KeypairFixture',
+            text_content('Keypair named %s created' % self.name))
+
+    def get(self):
+        """Return the private part of the key pair."""
+        return self.nova.keypairs.get(self.keypair.id)
+
+    def delete_keypair(self):
+        self.keypair.delete()
