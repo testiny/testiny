@@ -52,18 +52,7 @@ class TestDHCPResilience(TestinyTestCase):
         # TODO: simplify and refactor all fixtures used here
         # A single fixture that composes the others to produce a
         # project, with a user and a network would be good.
-
-        keystone_admin = self.get_keystone_v3_client_admin()
-        member_role = keystone_admin.roles.find(name="Member")
-        admin_role = keystone_admin.roles.find(name="admin")
-        admin_user = keystone_admin.users.find(name="admin")
-
-        keystone_admin.roles.grant(
-            member_role, user=user_fixture.user,
-            project=project_fixture.project)
-        keystone_admin.roles.grant(
-            admin_role, user=admin_user,
-            project=project_fixture.project)
+        project_fixture.add_user_to_role(user_fixture, 'Member')
 
         network_fixture = self.useFixture(
             NeutronNetworkFixture(project_name=project_fixture.name))

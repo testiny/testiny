@@ -31,6 +31,7 @@ import fixtures
 from testiny.clients import get_keystone_v3_client
 from testiny.config import CONF
 from testiny.factory import factory
+from testiny.fixtures.user import UserFixture
 from testtools.content import text_content
 
 
@@ -38,6 +39,7 @@ class ProjectFixture(fixtures.Fixture):
     """Test fixture that creates a randomly-named project.
 
     The name is available as the 'name' property after creation.
+    The global admin user is automatically added as an admin of the project.
     """
     def setUp(self):
         super(ProjectFixture, self).setUp()
@@ -48,7 +50,31 @@ class ProjectFixture(fixtures.Fixture):
         self.addDetail(
             'ProjectFixture', text_content('Project %s created' % self.name))
         self.addCleanup(self.delete_project)
+
+        # Automatically give the admin user an admin role on this
+        # project.
+        self.keystone_admin = get_keystone_v3_client(
+            project_name=CONF.admin_project)
+        self.admin_user = self.keystone_admin.users.find(name="admin")
+        self.add_user_to_role(self.admin_user, "admin")
+
         return self.project
 
     def delete_project(self):
+        """Delete this project."""
         self.keystone.projects.delete(project=self.project)
+
+    def add_user_to_role(self, user_or_user_fixture, role_name):
+        """Give an existing user a role on this project.
+
+        :param user_or_user_fixture: The user, or a userFixture.
+        :param role_name: String name of the role (e.g. Member)
+        """
+        if isinstance(user_or_user_fixture, UserFixture):
+            user = user_or_user_fixture.user
+        else:
+            user = user_or_user_fixture
+        keystone = get_keystone_v3_client(project_name=CONF.admin_project)
+        role = keystone.roles.find(name=role_name)
+        keystone.roles.grant(
+            role, user=user, project=self.project)
