@@ -49,15 +49,13 @@ class ProjectFixture(fixtures.Fixture):
             name=self.name, domain='default')
         self.addDetail(
             'ProjectFixture', text_content('Project %s created' % self.name))
-        self.addCleanup(self.delete_project)
 
         # Automatically give the admin user an admin role on this
         # project.
-        self.keystone_admin = get_keystone_v3_client(
-            project_name=CONF.admin_project)
-        self.admin_user = self.keystone_admin.users.find(name="admin")
+        self.admin_user = self.keystone.users.find(name="admin")
         self.add_user_to_role(self.admin_user, "admin")
 
+        self.addCleanup(self.delete_project)
         return self.project
 
     def delete_project(self):
@@ -74,7 +72,10 @@ class ProjectFixture(fixtures.Fixture):
             user = user_or_user_fixture.user
         else:
             user = user_or_user_fixture
-        keystone = get_keystone_v3_client(project_name=CONF.admin_project)
-        role = keystone.roles.find(name=role_name)
-        keystone.roles.grant(
+        role = self.keystone.roles.find(name=role_name)
+        self.keystone.roles.grant(
             role, user=user, project=self.project)
+        self.addCleanup(self.delete_role_grant, role, user, self.project)
+
+    def delete_role_grant(self, user, role):
+        self.keystone.roles.revoke(role, user=user, project=self.project)
