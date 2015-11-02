@@ -27,8 +27,6 @@ str = None
 __metaclass__ = type
 __all__ = []
 
-import os
-
 import keystoneclient
 from testiny.config import CONF
 from testiny.testcase import TestinyTestCase
@@ -61,21 +59,19 @@ class TestDHCPResilience(TestinyTestCase):
         network_fixture = self.useFixture(
             NeutronNetworkFixture(project_name=project_fixture.name))
 
-        # Create a keypair and put it in a temp dir.
+        # Create a keypair.
         keypair_fixture = self.useFixture(
             KeypairFixture(project_fixture, user_fixture))
-        tempdir = self.make_dir()
-        pem_file = os.path.join(tempdir, 'test.rsa')
-        with open(pem_file, 'wt') as f:
-            f.write(keypair_fixture.keypair.private_key)
 
-        random_filename = self.factory.make_string("filename-")
+        # Inject a random file into a new instance.
+        random_filename = "/tmp/%s" % self.factory.make_string("filename-")
         random_content = self.factory.make_string("content-")
         files = dict(random_filename=random_content)
         server_fixture = self.useFixture(
             ServerFixture(project_fixture, user_fixture, network_fixture,
                           key_name=keypair_fixture.name, files=files))
 
+        # Check that the instance came up on the expected network.
         network = network_fixture.network
         ip = server_fixture.get_ip_address(network["network"]["name"], 0)
         self.assertEqual(3, ip.count('.'))
@@ -85,7 +81,7 @@ class TestDHCPResilience(TestinyTestCase):
         # TODO: Connect instance to external network so SSH can reach it.
         code, out, err = server_fixture.run_command(
             "cat %s" % random_filename, user_name=CONF.fast_image['user_name'],
-            key_file_name=pem_file)
+            key_file_name=keypair_fixture.private_key_file)
         if code != 0:
             self.fail("SSH failed\nRETURN: %s\nSTDOUT: %s\nSTDERR: %s" %
                       (code, out, err))

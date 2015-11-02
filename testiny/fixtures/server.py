@@ -33,6 +33,7 @@ __all__ = [
     ]
 
 import datetime
+import os
 import subprocess
 import time
 
@@ -214,6 +215,16 @@ class KeypairFixture(fixtures.Fixture):
         self.addDetail(
             'KeypairFixture',
             text_content('Keypair named %s created' % self.name))
+
+        tempdir = self.useFixture(fixtures.TempDir()).path
+        self.private_key_file = os.path.join(tempdir, 'test.rsa')
+        with open(self.private_key_file, 'wt') as f:
+            f.write(self.keypair.private_key)
+
+        self.addDetail(
+            'KeypairFixture-private-key-file',
+            text_content(
+                'Private key file %s created' % self.private_key_file))
 
     def get(self):
         """Return the private part of the key pair."""
