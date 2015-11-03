@@ -93,9 +93,12 @@ class ServerFixture(fixtures.Fixture):
             try:
                 server = self.server.manager.get(self.server.id)
             except novaclient.exceptions.NotFound:
-                return
+                break
             if server is None or server.status != 'ACTIVE':
-                return
+                break
+        self.addDetail(
+            'ServerFixture',
+            text_content('Server instance named %s deleted' % self.name))
 
     def get_ip_address(self, network_label=None, index=None, seconds=60):
         """Get a server's IP address.
@@ -168,12 +171,13 @@ class ServerFixture(fixtures.Fixture):
         """Use SSH to run the specified command on this server.
 
         :param command: The command and its args as a string.
-        :param timeout: In seconds, the before before which this command must
+        :param timeout: In seconds, the time before which this command must
             complete, else a fixtures.server.TimeoutError is raised.
         :return: (stdout, stderr, return_code) from the command's process.
             stdout and stderr are a list of lines as returned by readlines().
         """
-        ip = self.get_ip_address()
+        # TODO: get the external IP, not just the last one.
+        ip = self.get_ip_address(index=-1)
         ssh = subprocess.Popen(
             ["ssh", "-i", key_file_name, "%s@%s" % (user_name, ip), command],
             shell=False,
@@ -220,6 +224,8 @@ class KeypairFixture(fixtures.Fixture):
         self.private_key_file = os.path.join(tempdir, 'test.rsa')
         with open(self.private_key_file, 'wt') as f:
             f.write(self.keypair.private_key)
+        # SSH is picky about permissions:
+        os.chmod(self.private_key_file, 0600)
 
         self.addDetail(
             'KeypairFixture-private-key-file',
@@ -232,3 +238,31 @@ class KeypairFixture(fixtures.Fixture):
 
     def delete_keypair(self):
         self.keypair.delete()
+
+
+class FloatingIPFixture(fixtures.Fixture):
+    """Test fixture that creates a floating IP.
+
+    The IP is available as the 'ip' property after creation.
+    """
+    def __init__(self, project_fixture, user_fixture, network_name):
+        super(FloatingIPFixture, self).__init__()
+        self.project_fixture = project_fixture
+        self.user_fixture = user_fixture
+        self.network_name = network_name
+
+    def setUp(self):
+        super(FloatingIPFixture, self).setUp()
+        self.nova = get_nova_v3_client(
+            user_name=self.user_fixture.name,
+            project_name=self.project_fixture.name,
+            password=self.user_fixture.password)
+        self.floatingip = self.nova.floating_ips.create(self.network_name)
+        self.addCleanup(self.delete_floatingip)
+        self.ip = self.floatingip.ip
+        self.addDetail(
+            'FloatingIPFixture',
+            text_content('Floating IP %s created' % self.ip))
+
+    def delete_floatingip(self):
+        self.floatingip.delete()
