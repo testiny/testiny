@@ -93,9 +93,12 @@ class ServerFixture(fixtures.Fixture):
             try:
                 server = self.server.manager.get(self.server.id)
             except novaclient.exceptions.NotFound:
-                return
+                break
             if server is None or server.status != 'ACTIVE':
-                return
+                break
+        self.addDetail(
+            'ServerFixture',
+            text_content('Server instance named %s deleted' % self.name))
 
     def get_ip_address(self, network_label=None, index=None, seconds=60):
         """Get a server's IP address.

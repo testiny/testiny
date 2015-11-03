@@ -33,6 +33,7 @@ from testiny.config import CONF
 from testiny.factory import factory
 from testiny.fixtures.user import UserFixture
 from testtools.content import text_content
+import keystoneclient
 
 
 class ProjectFixture(fixtures.Fixture):
@@ -84,5 +85,8 @@ class ProjectFixture(fixtures.Fixture):
         # this code is called.
         # Ignore this for now, but role assignments are likely to build
         # up. :(
-        return
-        self.keystone.roles.revoke(role, user=user, project=self.project)
+        try:
+            self.keystone.roles.revoke(role, user=user, project=self.project)
+        except keystoneclient.exceptions.NotFound:
+            # Le sigh
+            pass
