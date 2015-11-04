@@ -111,7 +111,6 @@ class RouterFixture(fixtures.Fixture):
         self.neutron.remove_interface_router(
             self.router["router"]["id"], {'subnet_id': subnet_id})
 
-<<<<<<< HEAD
     def add_gateway_router(self, network_id):
         self.neutron.add_gateway_router(
             self.router["router"]["id"], {'network_id': network_id})
