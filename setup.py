@@ -5,7 +5,6 @@ install_reqs = [
     'python-neutronclient',
     'python-novaclient',
     'pyyaml',
-    'testinfra',
 ]
 
 tests_require = [
