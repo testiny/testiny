@@ -10,6 +10,7 @@ install_reqs = [
 tests_require = [
     'fixtures',
     'flake8',
+    'ipython',
     'mock',
     'tempest-lib',
     'testrepository',
