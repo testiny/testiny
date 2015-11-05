@@ -1,6 +1,7 @@
 from setuptools import setup
 
 install_reqs = [
+    'netaddr',
     'python-keystoneclient',
     'python-neutronclient',
     'python-novaclient',

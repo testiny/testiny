@@ -34,8 +34,10 @@ try:
 except ImportError:
     # Python 3
     imap = map
-from itertools import islice
-from itertools import repeat
+from itertools import (
+    islice,
+    repeat,
+)
 import random
 import string
 

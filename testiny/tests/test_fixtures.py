@@ -28,9 +28,9 @@ __metaclass__ = type
 __all__ = []
 
 import keystoneclient
-from testiny.testcase import TestinyTestCase
 from testiny.fixtures.project import ProjectFixture
 from testiny.fixtures.user import UserFixture
+from testiny.testcase import TestinyTestCase
 
 
 class TestFixtures(TestinyTestCase):

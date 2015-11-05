@@ -43,6 +43,7 @@ import six
 from testiny.clients import get_nova_v3_client
 from testiny.config import CONF
 from testiny.factory import factory
+from testiny.utils import retry
 from testtools.content import text_content
 
 
@@ -52,6 +53,26 @@ class TimeoutError(Exception):
 
 class ServerStatusError(Exception):
     """Raised when a server moves into an error state."""
+
+
+def should_retry_command(run_command_result):
+    """Returns True when the command that produces the given output
+    should be retried.
+
+    Retry when:
+        - the error is a "No route to host" error;
+        - the error is a "Connection refused" error.
+
+    This method takes as input the output of the run_command() method:
+    (out, err, retcode).
+    """
+    retry_error_messages = [
+        "No route to host",
+        "Connection refused",
+    ]
+    error = ''.join(run_command_result[1])
+    return any(
+        message in error for message in retry_error_messages)
 
 
 class ServerFixture(fixtures.Fixture):
@@ -79,6 +100,7 @@ class ServerFixture(fixtures.Fixture):
         nic = [{"net-id": self.network_fixture.network["network"]["id"]}]
 
         # TODO: Catch errors and show sensible error messages.
+        # TODO: Do retries.
         self.server = self.nova.servers.create(
             self.name, image, m1tiny, nics=nic, **self.instance_kwargs)
         self.addCleanup(self.delete_server)
@@ -93,9 +115,12 @@ class ServerFixture(fixtures.Fixture):
             try:
                 server = self.server.manager.get(self.server.id)
             except novaclient.exceptions.NotFound:
-                return
+                break
             if server is None or server.status != 'ACTIVE':
-                return
+                break
+        self.addDetail(
+            'ServerFixture',
+            text_content('Server instance named %s deleted' % self.name))
 
     def get_ip_address(self, network_label=None, index=None, seconds=60):
         """Get a server's IP address.
@@ -164,18 +189,25 @@ class ServerFixture(fixtures.Fixture):
         raise ServerStatusError(
             "Timed out waiting for server %s" % server.name)
 
+    @retry(result_checker=should_retry_command, nb_attemps=5, delay=5)
     def run_command(self, command, user_name, key_file_name, timeout=60):
         """Use SSH to run the specified command on this server.
 
         :param command: The command and its args as a string.
-        :param timeout: In seconds, the before before which this command must
+        :param timeout: In seconds, the time before which this command must
             complete, else a fixtures.server.TimeoutError is raised.
         :return: (stdout, stderr, return_code) from the command's process.
             stdout and stderr are a list of lines as returned by readlines().
         """
-        ip = self.get_ip_address()
+        # TODO: get the external IP, not just the last one.
+        ip = self.get_ip_address(index=-1)
         ssh = subprocess.Popen(
-            ["ssh", "-i", key_file_name, "%s@%s" % (user_name, ip), command],
+            [
+                'ssh',
+                '-o', 'UserKnownHostsFile=/dev/null',
+                '-o', 'StrictHostKeyChecking=no',
+                '-i', key_file_name, "%s@%s" % (user_name, ip), command
+            ],
             shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
@@ -220,6 +252,8 @@ class KeypairFixture(fixtures.Fixture):
         self.private_key_file = os.path.join(tempdir, 'test.rsa')
         with open(self.private_key_file, 'wt') as f:
             f.write(self.keypair.private_key)
+        # SSH is picky about permissions:
+        os.chmod(self.private_key_file, 0600)
 
         self.addDetail(
             'KeypairFixture-private-key-file',
@@ -232,3 +266,31 @@ class KeypairFixture(fixtures.Fixture):
 
     def delete_keypair(self):
         self.keypair.delete()
+
+
+class FloatingIPFixture(fixtures.Fixture):
+    """Test fixture that creates a floating IP.
+
+    The IP is available as the 'ip' property after creation.
+    """
+    def __init__(self, project_fixture, user_fixture, network_name):
+        super(FloatingIPFixture, self).__init__()
+        self.project_fixture = project_fixture
+        self.user_fixture = user_fixture
+        self.network_name = network_name
+
+    def setUp(self):
+        super(FloatingIPFixture, self).setUp()
+        self.nova = get_nova_v3_client(
+            user_name=self.user_fixture.name,
+            project_name=self.project_fixture.name,
+            password=self.user_fixture.password)
+        self.floatingip = self.nova.floating_ips.create(self.network_name)
+        self.addCleanup(self.delete_floatingip)
+        self.ip = self.floatingip.ip
+        self.addDetail(
+            'FloatingIPFixture',
+            text_content('Floating IP %s created' % self.ip))
+
+    def delete_floatingip(self):
+        self.floatingip.delete()

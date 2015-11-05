@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Author(s): Julian Edwards
+# Author(s): Julian Edwards, Raphael Badin
 
 """A fixture that creates a neutron network in Openstack."""
 
@@ -111,10 +111,20 @@ class RouterFixture(fixtures.Fixture):
         self.neutron.remove_interface_router(
             self.router["router"]["id"], {'subnet_id': subnet_id})
 
+    def add_gateway_router(self, network_id):
+        self.neutron.add_gateway_router(
+            self.router["router"]["id"], {'network_id': network_id})
+
+    def remove_gateway_router(self):
+        self.neutron.remove_gateway_router(
+            self.router["router"]["id"])
+
     def delete_router(self):
         # Delete interfaces first.
         for subnet_id in self.subnet_ids:
             self.remove_interface_router(subnet_id)
+        # Clear gateway.
+        self.remove_gateway_router()
         # Delete router.
         self.neutron.delete_router(self.router["router"]["id"])
         self.addDetail(
@@ -128,12 +138,14 @@ class SecurityGroupRuleFixture(fixtures.Fixture):
     This assumes the security group already exists.
     """
     def __init__(self, project_fixture, security_group_name, direction,
-                 protocol):
+                 protocol, port_range_min=None, port_range_max=None):
         super(SecurityGroupRuleFixture, self).__init__()
         self.project_fixture = project_fixture
         self.security_group_name = security_group_name
         self.direction = direction
         self.protocol = protocol
+        self.port_range_min = port_range_min
+        self.port_range_max = port_range_max
 
     def setUp(self):
         super(SecurityGroupRuleFixture, self).setUp()
@@ -149,6 +161,8 @@ class SecurityGroupRuleFixture(fixtures.Fixture):
                     'direction': self.direction,
                     'security_group_id': self.security_group['id'],
                     'protocol': self.protocol,
+                    'port_range_max': self.port_range_max,
+                    'port_range_min': self.port_range_min,
                 }
             })
 
