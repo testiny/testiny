@@ -31,9 +31,11 @@ __all__ = [
 
 import fixtures
 import mock
-from testiny.clients import get_keystone_v3_client
-from testiny.clients import get_neutron_client
-from testiny.clients import get_nova_v3_client
+from testiny.clients import (
+    get_keystone_v3_client,
+    get_neutron_client,
+    get_nova_v3_client,
+)
 from testiny.config import CONF
 from testiny.factory import factory
 import testtools

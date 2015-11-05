@@ -43,6 +43,7 @@ import six
 from testiny.clients import get_nova_v3_client
 from testiny.config import CONF
 from testiny.factory import factory
+from testiny.utils import retry
 from testtools.content import text_content
 
 
@@ -52,6 +53,26 @@ class TimeoutError(Exception):
 
 class ServerStatusError(Exception):
     """Raised when a server moves into an error state."""
+
+
+def should_retry_command(run_command_result):
+    """Returns True when the command that produces the given output
+    should be retried.
+
+    Retry when:
+        - the error is a "No route to host" error;
+        - the error is a "Connection refused" error.
+
+    This method takes as input the output of the run_command() method:
+    (out, err, retcode).
+    """
+    retry_error_messages = [
+        "No route to host",
+        "Connection refused",
+    ]
+    error = ''.join(run_command_result[1])
+    return any(
+        message in error for message in retry_error_messages)
 
 
 class ServerFixture(fixtures.Fixture):
@@ -79,6 +100,7 @@ class ServerFixture(fixtures.Fixture):
         nic = [{"net-id": self.network_fixture.network["network"]["id"]}]
 
         # TODO: Catch errors and show sensible error messages.
+        # TODO: Do retries.
         self.server = self.nova.servers.create(
             self.name, image, m1tiny, nics=nic, **self.instance_kwargs)
         self.addCleanup(self.delete_server)
@@ -167,6 +189,7 @@ class ServerFixture(fixtures.Fixture):
         raise ServerStatusError(
             "Timed out waiting for server %s" % server.name)
 
+    @retry(result_checker=should_retry_command, nb_attemps=5, delay=5)
     def run_command(self, command, user_name, key_file_name, timeout=60):
         """Use SSH to run the specified command on this server.
 
@@ -179,7 +202,12 @@ class ServerFixture(fixtures.Fixture):
         # TODO: get the external IP, not just the last one.
         ip = self.get_ip_address(index=-1)
         ssh = subprocess.Popen(
-            ["ssh", "-i", key_file_name, "%s@%s" % (user_name, ip), command],
+            [
+                'ssh',
+                '-o', 'UserKnownHostsFile=/dev/null',
+                '-o', 'StrictHostKeyChecking=no',
+                '-i', key_file_name, "%s@%s" % (user_name, ip), command
+            ],
             shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)

@@ -33,13 +33,14 @@ __all__ = [
     'get_nova_v3_client',
     ]
 
+from keystoneclient import (
+    session,
+    v3 as keystone_v3,
+)
 from keystoneclient.auth import identity
-from keystoneclient import v3 as keystone_v3
-from keystoneclient import session
 from neutronclient.neutron import client as neutron_client
 from novaclient import client as nova_client
 from testiny.config import CONF
-
 
 # Cached session info.
 sessions = dict()

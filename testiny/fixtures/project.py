@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Author(s): Julian Edwards
+# Author(s): Julian Edwards, Raphael Badin
 
 """A fixture that creates a project in Openstack."""
 
@@ -28,12 +28,15 @@ __metaclass__ = type
 __all__ = []
 
 import fixtures
-from testiny.clients import get_keystone_v3_client
+import keystoneclient
+from testiny.clients import (
+    get_keystone_v3_client,
+    get_neutron_client,
+)
 from testiny.config import CONF
 from testiny.factory import factory
 from testiny.fixtures.user import UserFixture
 from testtools.content import text_content
-import keystoneclient
 
 
 class ProjectFixture(fixtures.Fixture):
@@ -44,10 +47,11 @@ class ProjectFixture(fixtures.Fixture):
     """
     def setUp(self):
         super(ProjectFixture, self).setUp()
-        self.name = factory.make_string("testiny")
+        self.name = factory.make_string("testiny-")
         self.keystone = get_keystone_v3_client(project_name=CONF.admin_project)
         self.project = self.keystone.projects.create(
             name=self.name, domain='default')
+        self.addCleanup(self.delete_project)
         self.addDetail(
             'ProjectFixture', text_content('Project %s created' % self.name))
 
@@ -56,7 +60,11 @@ class ProjectFixture(fixtures.Fixture):
         self.admin_user = self.admin_user_fixture.user
         self.add_user_to_role(self.admin_user, "admin")
 
-        self.addCleanup(self.delete_project)
+        self.neutron = get_neutron_client(
+            project_name=self.name,
+            user_name=self.admin_user.name,
+            password=self.admin_user_fixture.password)
+
         return self.project
 
     def delete_project(self):
@@ -90,3 +98,8 @@ class ProjectFixture(fixtures.Fixture):
         except keystoneclient.exceptions.NotFound:
             # Le sigh
             pass
+
+    def get_network(self, network_name):
+        """Fetch network object from network name."""
+        networks = self.neutron.list_networks(name=network_name)['networks']
+        return networks[0] if len(networks) == 1 else None
