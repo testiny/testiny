@@ -189,7 +189,7 @@ class ServerFixture(fixtures.Fixture):
         raise ServerStatusError(
             "Timed out waiting for server %s" % server.name)
 
-    @retry(result_checker=should_retry_command, nb_attemps=5, delay=5)
+    @retry(result_checker=should_retry_command, num_attempts=5, delay=5)
     def run_command(self, command, user_name, key_file_name, timeout=60):
         """Use SSH to run the specified command on this server.
 

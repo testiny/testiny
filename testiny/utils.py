@@ -33,19 +33,19 @@ from functools import wraps
 import time
 
 
-def retry(result_checker, nb_attemps=4, delay=1):
+def retry(result_checker, num_attempts=4, delay=1):
     """Retry calling the decorated function.
 
     :param result_checker: a callable returning True when the passed results
         means the call to the decorated function should be retried
-    :param nb_attemps: number of times to try before giving up
+    :param num_attempts: number of times to try before giving up
     :param delay: delay between retries in seconds
     """
     def new_retry(func):
         @wraps(func)
         def func_retry(*args, **kwargs):
             attempts = 0
-            while attempts < nb_attemps - 1:
+            while attempts < num_attempts - 1:
                 result = func(*args, **kwargs)
                 if not result_checker(result):
                     return result
