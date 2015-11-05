@@ -1,15 +1,22 @@
 # Sample Testiny config file.
 
 testiny:
-    auth_url: http://192.168.56.33:5000/v3
+    # Keystone auth endpoint.
+    auth_url: http://<keystone>:5000/v3
+
+    # Global admin credentials.
     username: admin
     password: secrete
     admin_project: admin
 
     network:
+        # Template for creating networks on project fixtures. {subnet} is
+        # replaced with a random number.
         cidr: 10.1.{subnet}.0/24
+
         # Name of the OS external network.
-        # This network must be externally routable.
+        # This network must be externally routable so that Testiny can SSH to
+        # instances it creates.
         external_network: public
 
     fast_image:
