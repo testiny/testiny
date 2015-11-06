@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Author(s): Raphael Badin
+# Author(s): Julian Edwards, Raphael Badin
 
-"""Test network."""
+"""Testing for network-related operations."""
 
 from __future__ import (
     absolute_import,
@@ -119,7 +119,7 @@ class TestPingMachines(TestinyTestCase):
         # Set public network as gateway to the router to allow inbound
         # connections to server1.
         external_network_name = CONF.network['external_network']
-        external_network = project_fixture.get_network(external_network_name)
+        external_network = network_fixture.get_network(external_network_name)
         router_fixture.add_gateway_router(external_network['id'])
 
         # Create floatingIP and associate it with server.
@@ -130,7 +130,6 @@ class TestPingMachines(TestinyTestCase):
 
         # TODO: Hide away this key pair management somehow.
         # TODO: Abstract away the user name somehow.
-        # TODO: Connect instance to external network so SSH can reach it.
         out, err, return_code = server_fixture.run_command(
             "sudo cat %s" % random_filename,
             user_name=CONF.fast_image['user_name'],
@@ -197,7 +196,7 @@ class TestPingMachines(TestinyTestCase):
         # Set public network as gateway to the router to allow inbound
         # connections to server1.
         external_network_name = CONF.network['external_network']
-        external_network = project_fixture.get_network(external_network_name)
+        external_network = network1_fixture.get_network(external_network_name)
         router_fixture.add_gateway_router(external_network['id'])
 
         # Create floatingIP and associate it with server1.

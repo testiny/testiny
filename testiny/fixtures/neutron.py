@@ -75,6 +75,17 @@ class NeutronNetworkFixture(fixtures.Fixture):
         self.neutron.delete_subnet(self.subnet["subnet"]["id"])
         self.neutron.delete_network(self.network["network"]["id"])
 
+    def get_network(self, network_name):
+        """Fetch network object given its network name.
+
+        Can be used to return networks other than the fixture's in the
+        context of the project, e.g. external networks.
+
+        Returns None if not found.
+        """
+        networks = self.neutron.list_networks(name=network_name)['networks']
+        return networks[0] if len(networks) == 1 else None
+
 
 class RouterFixture(fixtures.Fixture):
     """Test fixture that creates a randomly-named neutron router.
