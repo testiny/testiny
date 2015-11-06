@@ -29,10 +29,7 @@ __all__ = []
 
 import fixtures
 import keystoneclient
-from testiny.clients import (
-    get_keystone_v3_client,
-    get_neutron_client,
-)
+from testiny.clients import get_keystone_v3_client
 from testiny.config import CONF
 from testiny.factory import factory
 from testiny.fixtures.user import UserFixture
@@ -59,11 +56,6 @@ class ProjectFixture(fixtures.Fixture):
         self.admin_user_fixture = self.useFixture(UserFixture())
         self.admin_user = self.admin_user_fixture.user
         self.add_user_to_role(self.admin_user, "admin")
-
-        self.neutron = get_neutron_client(
-            project_name=self.name,
-            user_name=self.admin_user.name,
-            password=self.admin_user_fixture.password)
 
         return self.project
 
@@ -98,8 +90,3 @@ class ProjectFixture(fixtures.Fixture):
         except keystoneclient.exceptions.NotFound:
             # Le sigh
             pass
-
-    def get_network(self, network_name):
-        """Fetch network object from network name."""
-        networks = self.neutron.list_networks(name=network_name)['networks']
-        return networks[0] if len(networks) == 1 else None
