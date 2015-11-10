@@ -263,19 +263,27 @@ class IsolatedServerFixture(ServerFixture):
     Additional args are passed to nova.servers.create()
     """
     def __init__(self, **kwargs):
+        project_fixture = kwargs.pop('project_fixture', None)
+        user_fixture = kwargs.pop('user_fixture', None)
+        network_fixture = kwargs.pop('network_fixture', None)
         super(IsolatedServerFixture, self).__init__(
-            project_fixture=None, user_fixture=None,
-            network_fixture=None, **kwargs)
+            project_fixture=project_fixture,
+            user_fixture=user_fixture,
+            network_fixture=network_fixture,
+            **kwargs)
 
     def setUp(self):
         super(IsolatedServerFixture, self).setUp()
 
     def setup_prerequisites(self):
-        self.project_fixture = self.useFixture(ProjectFixture())
-        self.user_fixture = self.useFixture(UserFixture())
+        if self.project_fixture is None:
+            self.project_fixture = self.useFixture(ProjectFixture())
+        if self.user_fixture is None:
+            self.user_fixture = self.useFixture(UserFixture())
         self.project_fixture.add_user_to_role(self.user_fixture, 'Member')
-        self.network_fixture = self.useFixture(
-            NeutronNetworkFixture(project_fixture=self.project_fixture))
+        if self.network_fixture is None:
+            self.network_fixture = self.useFixture(
+                NeutronNetworkFixture(project_fixture=self.project_fixture))
         # Allow pings.
         self.useFixture(SecurityGroupRuleFixture(
             self.project_fixture, 'default', 'egress', 'icmp'))

@@ -29,7 +29,6 @@ __all__ = []
 
 import time
 
-import keystoneclient
 from netaddr import (
     IPAddress,
     IPNetwork,
@@ -37,13 +36,10 @@ from netaddr import (
 from testiny.config import CONF
 from testiny.fixtures.neutron import (
     NeutronNetworkFixture,
-    RouterFixture,
     SecurityGroupRuleFixture,
 )
 from testiny.fixtures.project import ProjectFixture
 from testiny.fixtures.server import (
-    FloatingIPFixture,
-    KeypairFixture,
     IsolatedServerFixture,
     ServerFixture,
 )
@@ -54,17 +50,9 @@ from testiny.testcase import TestinyTestCase
 class TestPingMachines(TestinyTestCase):
 
     def allow_icmp_traffic(self, project_fixture):
-        # Allow ICMP egress/ingress.
-        self.useFixture(SecurityGroupRuleFixture(
-            project_fixture, 'default', 'egress', 'icmp'))
+        # Allow ICMP ingress.
         self.useFixture(SecurityGroupRuleFixture(
             project_fixture, 'default', 'ingress', 'icmp'))
-
-    def allow_ssh_traffic(self, project_fixture):
-        # Allow SSH in.
-        self.useFixture(SecurityGroupRuleFixture(
-            project_fixture, 'default', 'ingress', 'tcp',
-            port_range_min=22, port_range_max=22))
 
     def test_server_gets_internal_dhcp_address(self):
         # Check that a server comes up with a DHCP address from the
@@ -99,73 +87,49 @@ class TestPingMachines(TestinyTestCase):
         # Two servers in different networks related by a router can reach one
         # another via ping.
 
-        try:
-            project_fixture = self.useFixture(ProjectFixture())
-        except keystoneclient.exceptions.ClientException as e:
-            self.fail(e)
+        project_fixture = self.useFixture(ProjectFixture())
+        user_fixture = self.useFixture(UserFixture())
 
-        try:
-            user_fixture = self.useFixture(UserFixture())
-        except keystoneclient.exceptions.ClientException as e:
-            self.fail(e)
-
-        project_fixture.add_user_to_role(user_fixture, 'Member')
-        keypair_fixture = self.useFixture(
-            KeypairFixture(project_fixture, user_fixture))
-
-        self.allow_icmp_traffic(project_fixture)
-        self.allow_ssh_traffic(project_fixture)
-
-        # Create 2 tenant networks/subnets.
-        network1_fixture = self.useFixture(
-            NeutronNetworkFixture(project_fixture=project_fixture))
+        # Create a tenant network/subnet for the second server.
         network2_fixture = self.useFixture(
             NeutronNetworkFixture(project_fixture=project_fixture))
 
-        # Create 2 servers.
-        server1_fixture = self.useFixture(
-            ServerFixture(
-                project_fixture, user_fixture, network1_fixture,
-                key_name=keypair_fixture.name))
+        server_fixture = self.useFixture(IsolatedServerFixture(
+            project_fixture=project_fixture,
+            user_fixture=user_fixture,
+        ))
+
+        self.allow_icmp_traffic(server_fixture.project_fixture)
+
+        # Attach second subnet to existing router.
+        server_fixture.router_fixture.add_interface_router(
+            network2_fixture.subnet["subnet"]["id"])
+
+        # Create a second server in the second network.
         # TODO: figure out why starting two servers in sequence quickly
-        # results in them timing out with 'Error: Failed to launch instance
-        # "name: Please try again later [Error: Virtual Interface creation
+        # results in them timing out with 'Error: Failed to launch instance:
+        # Please try again later [Error: Virtual Interface creation
         # failed].'.
         time.sleep(10)
         server2_fixture = self.useFixture(
-            ServerFixture(project_fixture, user_fixture, network2_fixture))
+            ServerFixture(
+                project_fixture,
+                user_fixture,
+                network2_fixture))
 
-        # Wait for the servers to get an IP address.
-        server1_fixture.get_ip_address(
-            network1_fixture.network["network"]["name"], 0)
-
+        # Wait for the second server to get an IP address.
         ip2 = server2_fixture.get_ip_address(
             network2_fixture.network["network"]["name"], 0)
 
-        # Create router and associate subnet interfaces.
-        router_fixture = self.useFixture(RouterFixture(project_fixture))
-        router_fixture.add_interface_router(
-            network1_fixture.subnet["subnet"]["id"])
-        router_fixture.add_interface_router(
-            network2_fixture.subnet["subnet"]["id"])
+        # Wait for the second server to come up.
+        # TODO: Poll on something instead of waiting.
+        time.sleep(10)
 
-        # Set public network as gateway to the router to allow inbound
-        # connections to server1.
-        external_network_name = CONF.network['external_network']
-        external_network = network1_fixture.get_network(external_network_name)
-        router_fixture.add_gateway_router(external_network['id'])
-
-        # Create floatingIP and associate it with server1.
-        floatingip1_fixture = self.useFixture(
-            FloatingIPFixture(
-                project_fixture, user_fixture, external_network_name))
-        server1_fixture.server.add_floating_ip(floatingip1_fixture.ip)
-
-        # Ping private IP of server2 from server.
-        _, err, retcode = server1_fixture.run_command(
+        # Ping private IP of second server from first server.
+        out, err, retcode = server_fixture.run_command(
             command='ping -c 5 -W 2 -q %s' % ip2,
             user_name=CONF.fast_image['user_name'],
-            key_file_name=keypair_fixture.private_key_file,
+            key_file_name=server_fixture.keypair_fixture.private_key_file,
         )
         self.assertEqual(
             0, retcode,
