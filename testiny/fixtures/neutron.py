@@ -67,13 +67,13 @@ class NeutronNetworkFixture(fixtures.Fixture):
             {"subnet": dict(
                 name=self.sub_name, network_id=network_id, cidr=cidr,
                 ip_version=4)})
+        self.addCleanup(self.delete_network)
         self.addDetail(
             'NeutronNetworkFixture-network',
             text_content('Network %s created' % self.net_name))
         self.addDetail(
             'NeutronNetworkFixture-subnet',
             text_content('Subnet %s created' % self.sub_name))
-        self.addCleanup(self.delete_network)
 
     def delete_network(self):
         self.neutron.delete_subnet(self.subnet["subnet"]["id"])
