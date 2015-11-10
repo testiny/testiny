@@ -43,6 +43,11 @@ import six
 from testiny.clients import get_nova_v3_client
 from testiny.config import CONF
 from testiny.factory import factory
+from testiny.fixtures.neutron import NeutronNetworkFixture
+from testiny.fixtures.neutron import RouterFixture
+from testiny.fixtures.neutron import SecurityGroupRuleFixture
+from testiny.fixtures.project import ProjectFixture
+from testiny.fixtures.user import UserFixture
 from testiny.utils import retry
 from testtools.content import text_content
 
@@ -79,6 +84,8 @@ class ServerFixture(fixtures.Fixture):
     """Test fixture that creates a randomly-named server instance.
 
     The name is available as the 'name' property after creation.
+
+    Additional args are passed to nova.servers.create()
     """
     def __init__(self, project_fixture, user_fixture, network_fixture,
                  **kwargs):
@@ -90,24 +97,35 @@ class ServerFixture(fixtures.Fixture):
 
     def setUp(self):
         super(ServerFixture, self).setUp()
-        self.nova = get_nova_v3_client(
-            user_name=self.user_fixture.name,
-            project_name=self.project_fixture.name,
-            password=self.user_fixture.password)
-        self.name = factory.make_string('testinyservername-')
-        m1tiny = self.nova.flavors.find(name=CONF.fast_image['flavor_name'])
-        image = self.nova.images.find(name=CONF.fast_image['image_name'])
-        nic = [{"net-id": self.network_fixture.network["network"]["id"]}]
-
+        self.setup_prerequisites()
         # TODO: Catch errors and show sensible error messages.
         # TODO: Do retries.
-        self.server = self.nova.servers.create(
-            self.name, image, m1tiny, nics=nic, **self.instance_kwargs)
+        self.create_server()
         self.addCleanup(self.delete_server)
 
         self.addDetail(
             'ServerFixture',
             text_content('Server instance named %s created' % self.name))
+
+    def setup_prerequisites(self):
+        self.nova = get_nova_v3_client(
+            user_name=self.user_fixture.name,
+            project_name=self.project_fixture.name,
+            password=self.user_fixture.password)
+        self.name = factory.make_string('testinyservername-')
+        self.flavor = self.nova.flavors.find(
+            name=CONF.fast_image['flavor_name'])
+        self.image = self.nova.images.find(name=CONF.fast_image['image_name'])
+        self.nics = [{"net-id": self.network_fixture.network["network"]["id"]}]
+
+    def create_server(self):
+        """Create a new server instance.
+
+        In its own method so subclasses can override.
+        """
+        self.server = self.nova.servers.create(
+            self.name, self.image, self.flavor, nics=self.nics,
+            **self.instance_kwargs)
 
     def delete_server(self):
         self.nova.servers.delete(self.server)
@@ -224,6 +242,80 @@ class ServerFixture(fixtures.Fixture):
                     ssh.returncode)
 
         raise TimeoutError
+
+
+class IsolatedServerFixture(ServerFixture):
+    """Extension of ServerFixture that sets up all its dependencies.
+
+    Instead of providing a project, a user, a network etc.,
+    instances of all dependent fixtures are created automatically:
+        - A Project
+        - A User
+        - A Network
+        - SecurityGroup rules to allow ping and ssh
+        - A Key Pair for the server
+        - A Router, connected to the external public network
+        - A Floating IP for the server, to allow access from Testiny.
+
+    This allows for one-liner server instances in tests, for
+    convenience.
+
+    Additional args are passed to nova.servers.create()
+    """
+    def __init__(self, **kwargs):
+        super(IsolatedServerFixture, self).__init__(
+            project_fixture=None, user_fixture=None,
+            network_fixture=None, **kwargs)
+
+    def setUp(self):
+        super(IsolatedServerFixture, self).setUp()
+
+    def setup_prerequisites(self):
+        self.project_fixture = self.useFixture(ProjectFixture())
+        self.user_fixture = self.useFixture(UserFixture())
+        self.project_fixture.add_user_to_role(self.user_fixture, 'Member')
+        self.network_fixture = self.useFixture(
+            NeutronNetworkFixture(project_fixture=self.project_fixture))
+        # Allow pings.
+        self.useFixture(SecurityGroupRuleFixture(
+            self.project_fixture, 'default', 'egress', 'icmp'))
+        # Allow ssh.
+        self.useFixture(SecurityGroupRuleFixture(
+            self.project_fixture, 'default', 'ingress', 'tcp',
+            port_range_min=22, port_range_max=22))
+        self.keypair_fixture = self.useFixture(
+            KeypairFixture(self.project_fixture, self.user_fixture))
+        # Attach a router with the public network as gateway to allow
+        # inbound connections to the server.
+        self.router_fixture = self.useFixture(
+            RouterFixture(self.project_fixture))
+        self.router_fixture.add_interface_router(
+            self.network_fixture.subnet["subnet"]["id"])
+        external_network_name = CONF.network['external_network']
+        external_network = self.network_fixture.get_network(
+            external_network_name)
+        self.router_fixture.add_gateway_router(external_network['id'])
+
+        super(IsolatedServerFixture, self).setup_prerequisites()
+
+    def create_server(self):
+        # Override base class method so we can inject the keypair and
+        # add a floating IP.
+        self.server = self.nova.servers.create(
+            self.name, self.image, self.flavor, nics=self.nics,
+            key_name=self.keypair_fixture.name, **self.instance_kwargs)
+
+        # Create a floating IP and associate it with the instance. You
+        # have to wait for the internal IP to come up before this will
+        # work (Otherwise you get the error 'No nw_info cache associated
+        # with instance' from Nova).
+        self.get_ip_address()
+        external_network_name = CONF.network['external_network']
+        self.floatingip_fixture = self.useFixture(
+            FloatingIPFixture(
+                self.project_fixture, self.user_fixture,
+                external_network_name))
+        self.server.add_floating_ip(self.floatingip_fixture.ip)
 
 
 class KeypairFixture(fixtures.Fixture):

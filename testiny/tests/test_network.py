@@ -44,6 +44,7 @@ from testiny.fixtures.project import ProjectFixture
 from testiny.fixtures.server import (
     FloatingIPFixture,
     KeypairFixture,
+    IsolatedServerFixture,
     ServerFixture,
 )
 from testiny.fixtures.user import UserFixture
@@ -66,74 +67,29 @@ class TestPingMachines(TestinyTestCase):
             port_range_min=22, port_range_max=22))
 
     def test_server_gets_internal_dhcp_address(self):
-        # A server comes up with a DHCP address from the subnet it's
-        # attached to.
-
-        # TODO: create a test decorator that does this try/except for you.
-        try:
-            project_fixture = self.useFixture(ProjectFixture())
-        except keystoneclient.exceptions.ClientException as e:
-            self.fail(e)
-
-        try:
-            user_fixture = self.useFixture(UserFixture())
-        except keystoneclient.exceptions.ClientException as e:
-            self.fail(e)
-
-        # TODO: simplify and refactor all fixtures used here
-        # A single fixture that composes the others to produce a
-        # project, with a user and a network would be good.
-        project_fixture.add_user_to_role(user_fixture, 'Member')
-
-        network_fixture = self.useFixture(
-            NeutronNetworkFixture(project_fixture=project_fixture))
-
-        self.allow_icmp_traffic(project_fixture)
-        self.allow_ssh_traffic(project_fixture)
-
-        # Create a keypair.
-        keypair_fixture = self.useFixture(
-            KeypairFixture(project_fixture, user_fixture))
+        # Check that a server comes up with a DHCP address from the
+        # subnet it's attached to.
 
         # Inject a random file into a new instance.
         random_filename = "/tmp/%s" % self.factory.make_string("filename-")
         random_content = self.factory.make_string("content-")
         files = {random_filename: random_content}
-        server_fixture = self.useFixture(
-            ServerFixture(project_fixture, user_fixture, network_fixture,
-                          key_name=keypair_fixture.name, files=files))
+        server_fixture = self.useFixture(IsolatedServerFixture(files=files))
 
         # Check that the instance came up on the expected network.
-        network = network_fixture.network
+        network = server_fixture.network_fixture.network
         ip = server_fixture.get_ip_address(network["network"]["name"], 0)
-        cidr = network_fixture.subnet['subnet']['cidr']
+        cidr = server_fixture.network_fixture.subnet['subnet']['cidr']
         self.assertIsNotNone(ip, "Internal IP of server is None")
         self.assertIn(
             IPAddress(ip), IPNetwork(cidr),
             "Internal IP of server is not in the expected subnet")
 
-        router_fixture = self.useFixture(RouterFixture(project_fixture))
-        router_fixture.add_interface_router(
-            network_fixture.subnet["subnet"]["id"])
-
-        # Set public network as gateway to the router to allow inbound
-        # connections to server1.
-        external_network_name = CONF.network['external_network']
-        external_network = network_fixture.get_network(external_network_name)
-        router_fixture.add_gateway_router(external_network['id'])
-
-        # Create floatingIP and associate it with server.
-        floatingip_fixture = self.useFixture(
-            FloatingIPFixture(
-                project_fixture, user_fixture, external_network_name))
-        server_fixture.server.add_floating_ip(floatingip_fixture.ip)
-
-        # TODO: Hide away this key pair management somehow.
         # TODO: Abstract away the user name somehow.
         out, err, return_code = server_fixture.run_command(
             "sudo cat %s" % random_filename,
             user_name=CONF.fast_image['user_name'],
-            key_file_name=keypair_fixture.private_key_file)
+            key_file_name=server_fixture.keypair_fixture.private_key_file)
         self.assertEqual(
             0, return_code,
             "Failed to read file on server: (%s)" % ''.join(err))
