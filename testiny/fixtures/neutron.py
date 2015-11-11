@@ -91,6 +91,13 @@ class NeutronNetworkFixture(fixtures.Fixture):
         networks = self.neutron.list_networks(name=network_name)['networks']
         return networks[0] if len(networks) == 1 else None
 
+    def get_external_gateway_ip(self, subnet_index=0):
+        """Return the gateway IP of a subnet in the public network."""
+        external_network = self.get_network(CONF.network['external_network'])
+        subnets = self.neutron.list_subnets(
+            network_id=external_network['id'])['subnets']
+        return subnets[subnet_index]['gateway_ip']
+
 
 class RouterFixture(fixtures.Fixture):
     """Test fixture that creates a randomly-named neutron router.
@@ -137,6 +144,7 @@ class RouterFixture(fixtures.Fixture):
     def remove_interface_router(self, subnet_id):
         self.neutron.remove_interface_router(
             self.router["router"]["id"], {'subnet_id': subnet_id})
+        self.subnet_ids.remove(subnet_id)
 
     def add_gateway_router(self, network_id):
         self.neutron.add_gateway_router(
