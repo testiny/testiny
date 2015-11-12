@@ -31,14 +31,16 @@ __all__ = [
     "SecurityGroupRuleFixture",
     ]
 
-import random
-
 import fixtures
 from testiny.clients import get_neutron_client
 from testiny.config import CONF
+from testiny.utils import synchronized
 from testiny.factory import factory
 from testiny.utils import wait_until
 from testtools.content import text_content
+
+SUBNET_ID_MIN = 11
+SUBNET_ID_MAX = 254
 
 
 class NeutronNetworkFixture(fixtures.Fixture):
@@ -46,9 +48,25 @@ class NeutronNetworkFixture(fixtures.Fixture):
 
     The name is available as the 'name' property after creation.
     """
+    # A record of the available subnet ids.
+    available_subnet_ids = set(
+        range(SUBNET_ID_MAX, SUBNET_ID_MIN - 1, -1))
+
     def __init__(self, project_fixture):
         super(NeutronNetworkFixture, self).__init__()
         self.project_fixture = project_fixture
+
+    @classmethod
+    @synchronized
+    def get_subnet_id(cls):
+        """Get an available subnet id."""
+        return cls.available_subnet_ids.pop()
+
+    @classmethod
+    @synchronized
+    def release_subnet_id(cls, id):
+        """Release the given subnet id."""
+        cls.available_subnet_ids.add(id)
 
     def _setUp(self):
         super(NeutronNetworkFixture, self)._setUp()
@@ -56,8 +74,8 @@ class NeutronNetworkFixture(fixtures.Fixture):
             project_name=self.project_fixture.name,
             user_name=self.project_fixture.admin_user.name,
             password=self.project_fixture.admin_user_fixture.password)
-        subnet = random.randint(11, 255)
-        cidr = CONF.network['cidr'].format(subnet=subnet)
+        self.subnet_id = self.get_subnet_id()
+        cidr = CONF.network['cidr'].format(subnet=self.subnet_id)
         # TODO: handle clashes and retry.
         self.net_name = factory.make_obj_name("network")
         self.sub_name = factory.make_obj_name("subnet")
@@ -74,11 +92,13 @@ class NeutronNetworkFixture(fixtures.Fixture):
             text_content('Network %s created' % self.net_name))
         self.addDetail(
             'NeutronNetworkFixture-subnet',
-            text_content('Subnet %s created' % self.sub_name))
+            text_content('Subnet %s created (cidr=%s)' % (
+                self.sub_name, cidr)))
 
     def delete_network(self):
         self.neutron.delete_subnet(self.subnet["subnet"]["id"])
         self.neutron.delete_network(self.network["network"]["id"])
+        self.release_subnet_id(self.subnet_id)
 
     def get_network(self, network_name):
         """Fetch network object given its network name.
@@ -204,7 +224,10 @@ class SecurityGroupRuleFixture(fixtures.Fixture):
         self.addDetail(
             'SecurityGroupRuleFixture-network',
             text_content(
-                'Security group rule %s created' % self.security_group_rule))
+                'Security group rule %s created' % (
+                    self.security_group_rule
+                    ['security_group_rule']
+                    ['security_group_id'])))
         self.addCleanup(self.delete_security_group_rule)
 
     def load_security_group(self):

@@ -256,7 +256,6 @@ class ServerFixture(fixtures.Fixture):
         else:
             return ''
 
-    @retry(result_checker=should_retry_command, num_attempts=5, delay=5)
     def _run_ssh_command(self, command, user_name, key_file_name):
         ip = self.get_access_ip()
         prefix = self._get_access_ssh_prefix_command()

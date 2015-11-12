@@ -30,6 +30,7 @@ __all__ = [
     "list_network_namespaces",
     "parse_ping_output",
     "retry",
+    "synchronized",
     "wait_until",
     ]
 
@@ -37,6 +38,7 @@ import datetime
 from functools import wraps
 import re
 import subprocess
+import threading
 import time
 
 
@@ -98,3 +100,16 @@ def parse_ping_output(ping_output):
         '(\d*) packets transmitted, .* ([\d\.]*)\% packet loss',
         ping_output)
     return match.groups() if match is not None else None
+
+
+def synchronized(func):
+    """Decorator to make a function threadsafe."""
+    lock = threading.Lock()
+
+    def wrap(*args, **kwargs):
+        lock.acquire()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            lock.release()
+    return wrap
