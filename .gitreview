@@ -1,0 +1,5 @@
+[gerrit]
+host=review.metacloud.in
+port=29418
+project=testiny
+defaultbranch=master
