@@ -37,6 +37,7 @@ import fixtures
 from testiny.clients import get_neutron_client
 from testiny.config import CONF
 from testiny.factory import factory
+from testiny.utils import wait_until
 from testtools.content import text_content
 
 
@@ -111,11 +112,22 @@ class RouterFixture(fixtures.Fixture):
         self.name = factory.make_string("router-")
         self.router = self.neutron.create_router(
             {'router': {'name': self.name, 'admin_state_up': True}})
-
+        self.addCleanup(self.delete_router)
         self.addDetail(
             'RouterFixture-network',
             text_content('Router %s created' % self.name))
-        self.addCleanup(self.delete_router)
+        self.wait_until_active()
+
+    def wait_until_active(self):
+        wait_until(lambda: self.refresh()['router']['status'] == 'ACTIVE')
+
+    def refresh(self):
+        """Refresh the self.router object."""
+        routers = self.neutron.list_routers(
+            id=self.router['router']['id'])
+        if len(routers) == 1 and len(routers['routers']) == 1:
+            self.router['router'] = routers['routers'][0]
+        return self.router
 
     def add_interface_router(self, subnet_id):
         self.neutron.add_interface_router(

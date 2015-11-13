@@ -29,8 +29,10 @@ __all__ = [
     "check_network_namespace",
     "list_network_namespaces",
     "retry",
+    "wait_until",
     ]
 
+import datetime
 from functools import wraps
 import subprocess
 import time
@@ -60,6 +62,17 @@ def retry(result_checker, num_attempts=4, delay=1):
         return func_retry
 
     return new_retry
+
+
+def wait_until(predictate, timeout=60, timeout_msg=''):
+    """Wait until a predicate is true."""
+    start = datetime.datetime.utcnow()
+    finish = start + datetime.timedelta(seconds=timeout)
+    while datetime.datetime.utcnow() < finish:
+        if predictate():
+            return
+        time.sleep(1)
+    raise Exception("Timed out %s" % timeout_msg)
 
 
 def list_network_namespaces():
