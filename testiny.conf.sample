@@ -9,6 +9,12 @@ testiny:
     password: secrete
     admin_project: admin
 
+    # How to access the instances. Valid values:
+    # 'floatingip': use the machine's floating ip
+    # 'local_netns': use the machine network's namespace; this requires
+    #     testiny to run on the machine where network namespaces reside.
+    instance_access: floatingip
+
     network:
         # Template for creating networks on project fixtures. {subnet} is
         # replaced with a random number.

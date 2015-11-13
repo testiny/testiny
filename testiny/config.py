@@ -29,9 +29,11 @@ str = None
 
 __metaclass__ = type
 __all__ = [
-    'CONF'
+    'CONF',
+    'InstanceAccessEnum',
     ]
 
+from flufl.enum import Enum
 import yaml
 
 
@@ -66,6 +68,13 @@ class AttrDict(dict):
 
 CONF = AttrDict(conf['testiny'])
 
+# Enum class for the instance_access config.
+InstanceAccessEnum = Enum(
+    'InstanceAccess',
+    {
+        'floatingip': 'floatingip',
+        'local_netns': 'local_netns',
+    })
 
 # TODO: Cache config and make thread safe.
 # Might also want a Schema for it but not necessary.

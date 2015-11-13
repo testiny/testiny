@@ -1,6 +1,7 @@
 from setuptools import setup
 
 install_reqs = [
+    'flufl.enum',
     'netaddr',
     'python-keystoneclient',
     'python-neutronclient',

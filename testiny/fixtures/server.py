@@ -40,15 +40,26 @@ import time
 import fixtures
 import novaclient
 import six
-from testiny.clients import get_nova_v3_client
-from testiny.config import CONF
+from testiny.clients import (
+    get_neutron_client,
+    get_nova_v3_client,
+)
+from testiny.config import (
+    CONF,
+    InstanceAccessEnum,
+)
 from testiny.factory import factory
-from testiny.fixtures.neutron import NeutronNetworkFixture
-from testiny.fixtures.neutron import RouterFixture
-from testiny.fixtures.neutron import SecurityGroupRuleFixture
+from testiny.fixtures.neutron import (
+    NeutronNetworkFixture,
+    RouterFixture,
+    SecurityGroupRuleFixture,
+)
 from testiny.fixtures.project import ProjectFixture
 from testiny.fixtures.user import UserFixture
-from testiny.utils import retry
+from testiny.utils import (
+    check_network_namespace,
+    retry,
+)
 from testtools.content import text_content
 
 
@@ -207,6 +218,44 @@ class ServerFixture(fixtures.Fixture):
         raise ServerStatusError(
             "Timed out waiting for server %s" % server.name)
 
+    def get_access_ip(self):
+        """Return the IP address used to access this instance."""
+        access_method = CONF.instance_access
+        floatingip = InstanceAccessEnum.floatingip.value
+        local_netns = InstanceAccessEnum.local_netns.value
+        if access_method == floatingip:
+            # TODO: get the external IP, not just the last one.
+            return self.get_ip_address(index=-1)
+        elif access_method == local_netns:
+            # TODO: get the internal IP, not just the first one.
+            return self.get_ip_address(index=0)
+        else:
+            # TODO: this validation should be done at config parsing
+            # time.
+            raise Exception(
+                "Unknown instance access method: %s")
+
+    def _get_access_ssh_prefix_command(self):
+        """Return the command prefix used to access this instance.
+
+        If the access method is 'local_netns', return the prefix to SSH
+        to the instance throught the DHCP network namespace.
+        """
+        local_netns = InstanceAccessEnum.local_netns.value
+        if CONF.instance_access == local_netns:
+            server = self.server.manager.get(self.server.id)
+            network_name = server.networks.popitem()[0]
+            neutron = get_neutron_client(
+                project_name=self.project_fixture.name,
+                user_name=self.project_fixture.admin_user.name,
+                password=self.project_fixture.admin_user_fixture.password)
+            network = neutron.list_networks(name=network_name)['networks'][0]
+            netns = 'qdhcp-%s' % network['id']
+            check_network_namespace(netns)
+            return 'sudo ip netns exec %s' % netns
+        else:
+            return ''
+
     @retry(result_checker=should_retry_command, num_attempts=5, delay=5)
     def run_command(self, command, user_name, key_file_name, timeout=60):
         """Use SSH to run the specified command on this server.
@@ -217,15 +266,17 @@ class ServerFixture(fixtures.Fixture):
         :return: (stdout, stderr, return_code) from the command's process.
             stdout and stderr are a list of lines as returned by readlines().
         """
-        # TODO: get the external IP, not just the last one.
-        ip = self.get_ip_address(index=-1)
+        ip = self.get_access_ip()
+
+        prefix = self._get_access_ssh_prefix_command()
+        ssh_command = prefix.split() + [
+            'ssh',
+            '-o', 'UserKnownHostsFile=/dev/null',
+            '-o', 'StrictHostKeyChecking=no',
+            '-i', key_file_name, "%s@%s" % (user_name, ip), command
+        ]
         ssh = subprocess.Popen(
-            [
-                'ssh',
-                '-o', 'UserKnownHostsFile=/dev/null',
-                '-o', 'StrictHostKeyChecking=no',
-                '-i', key_file_name, "%s@%s" % (user_name, ip), command
-            ],
+            ssh_command,
             shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)

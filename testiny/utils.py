@@ -26,10 +26,13 @@ str = None
 
 __metaclass__ = type
 __all__ = [
+    "check_network_namespace",
+    "list_network_namespaces",
     "retry",
     ]
 
 from functools import wraps
+import subprocess
 import time
 
 
@@ -57,3 +60,15 @@ def retry(result_checker, num_attempts=4, delay=1):
         return func_retry
 
     return new_retry
+
+
+def list_network_namespaces():
+    """List the network namespaces."""
+    ns_list = subprocess.check_output(['sudo', 'ip', 'netns', 'list'])
+    return ns_list.split()
+
+
+def check_network_namespace(netns):
+    """Raise an exception if a network namespace doesn't exist."""
+    if netns not in list_network_namespaces():
+        raise Exception("Namespace %s not in machine namespaces.")
