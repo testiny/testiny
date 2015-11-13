@@ -59,6 +59,10 @@ class ProjectFixture(fixtures.Fixture):
         self.admin_user = self.admin_user_fixture.user
         self.add_user_to_role(self.admin_user, "admin")
 
+        # Add global admin to the project.
+        global_admin_user = self.keystone.users.find(name=CONF.username)
+        self.add_user_to_role(global_admin_user, "admin")
+
         return self.project
 
     def delete_project(self):

@@ -2,7 +2,7 @@
 
 set -o pipefail
 
-if [ ! -e testiny.conf ]; then
+if [ ! -e testiny.conf ] && [ ! -e /etc/testiny/testiny.conf ] ; then
     echo "testiny.conf missing, please copy from testiny.conf.example and edit to match your local Openstack installation"
     exit 1
 fi

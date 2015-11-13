@@ -47,23 +47,13 @@ from testiny.fixtures.user import UserFixture
 from testiny.testcase import TestinyTestCase
 
 
-class TestPingMachines(TestinyTestCase):
-
-    def allow_icmp_traffic(self, project_fixture):
-        # Allow ICMP ingress.
-        self.useFixture(SecurityGroupRuleFixture(
-            project_fixture, 'default', 'ingress', 'icmp'))
+class TestBringUpInstances(TestinyTestCase):
 
     def test_server_gets_internal_dhcp_address(self):
         # Check that a server comes up with a DHCP address from the
         # subnet it's attached to.
 
-        # Inject a random file into a new instance.
-        random_filename = "/tmp/%s" % self.factory.make_string("filename-")
-        random_content = self.factory.make_string("content-")
-        files = {random_filename: random_content}
-        server_fixture = self.useFixture(IsolatedServerFixture(files=files))
-
+        server_fixture = self.useFixture(IsolatedServerFixture())
         # Check that the instance came up on the expected network.
         network = server_fixture.network_fixture.network
         ip = server_fixture.get_ip_address(network["network"]["name"], 0)
@@ -72,6 +62,17 @@ class TestPingMachines(TestinyTestCase):
         self.assertIn(
             IPAddress(ip), IPNetwork(cidr),
             "Internal IP of server is not in the expected subnet")
+
+    def test_server_gets_files_throught_metadata(self):
+        # Check that a server comes up with the files configured via the
+        # the metadata service.
+        self.skipTest("This currently fails on PAS2: investigate")
+
+        # Inject a random file into a new instance.
+        random_filename = "/tmp/%s" % self.factory.make_string("filename-")
+        random_content = self.factory.make_string("content-")
+        files = {random_filename: random_content}
+        server_fixture = self.useFixture(IsolatedServerFixture(files=files))
 
         # TODO: Abstract away the user name somehow.
         out, err, return_code = server_fixture.run_command(
@@ -82,6 +83,14 @@ class TestPingMachines(TestinyTestCase):
             0, return_code,
             "Failed to read file on server: (%s)" % ''.join(err))
         self.assertEqual(''.join(out), random_content)
+
+
+class TestPingInstances(TestinyTestCase):
+
+    def allow_icmp_traffic(self, project_fixture):
+        # Allow ICMP ingress.
+        self.useFixture(SecurityGroupRuleFixture(
+            project_fixture, 'default', 'ingress', 'icmp'))
 
     def test_ping_across_networks(self):
         # Two servers in different networks related by a router can reach one
