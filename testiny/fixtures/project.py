@@ -45,7 +45,7 @@ class ProjectFixture(fixtures.Fixture):
     """
     def _setUp(self):
         super(ProjectFixture, self)._setUp()
-        self.name = factory.make_string("testiny-")
+        self.name = factory.make_obj_name('proj')
         self.keystone = get_keystone_v3_client(project_name=CONF.admin_project)
         self.project = self.keystone.projects.create(
             name=self.name, domain='default')

@@ -27,6 +27,7 @@ str = None
 __metaclass__ = type
 __all__ = [
     'factory',
+    'OS_OBJECT_PREFIX',
     ]
 
 try:
@@ -41,6 +42,9 @@ from itertools import (
 import random
 import string
 
+# Prefix used when creating Openstack objects.
+OS_OBJECT_PREFIX = 'testiny-'
+
 
 class Factory:
     """Class that defines helpers that make things for you."""
@@ -50,6 +54,22 @@ class Factory:
 
     def make_string(self, prefix="", size=10):
         return prefix + "".join(islice(self.random_letters, size))
+
+    def make_obj_name(self, obj_type=""):
+        """Create a random name for an Openstack object.
+
+        This will use a common prefix meant to identify quickly
+        all the Openstack objects created by a testiny run.
+
+        :param obj_type: Type of the created object.  This will be
+            included in the name as a convenience to quickly identify
+            the type of an object based on its name.
+        """
+        prefix = OS_OBJECT_PREFIX
+        if obj_type != "":
+            prefix = "%s%s-" % (prefix, obj_type)
+        return self.make_string(prefix=prefix)
+
 
 # Factory is a singleton.
 factory = Factory()
