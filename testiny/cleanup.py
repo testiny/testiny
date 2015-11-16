@@ -68,15 +68,24 @@ routers = [ router for router in neutron.list_routers()['routers']
     if re.match('router-[a-zA-Z0-9]{10}$', router['name']) is not None ]
 #pp.pprint (routers)
 
-all_subnets = [subnet['id'] for subnet in neutron.list_subnets()['subnets']]
+all_subnets = [subnet for subnet in neutron.list_subnets()['subnets']]
+all_subnets_by_id = { subnet['id'] : subnet for subnet in all_subnets }
 
 for router in routers:
     project = next((project for project in projects
         if project.id==router['tenant_id']), None)
     router_all_ports_fixed_ips = [ port['fixed_ips']
         for port in neutron.list_ports(device_id=router['id'])['ports']] 
-    router_ips = ', '.join([ router_port_fixed_ip['ip_address']
+    router_port_fixed_ips = [ router_port_fixed_ip
         for router_port_fixed_ips in router_all_ports_fixed_ips
+        for router_port_fixed_ip in router_port_fixed_ips ]
+    router_ips = ', '.join([ router_port_fixed_ip['ip_address']
         for router_port_fixed_ip in router_port_fixed_ips ])
-    print ('{} {} (project: {})'.format(router['name'], router_ips, getattr(project, 'name', None)))
+    router_subnets = [ router_port_fixed_ip['subnet_id']
+        for router_port_fixed_ip in router_port_fixed_ips ]
+    print ('router "{}" ips: {} (project: {})'.format(router['name'], router_ips, getattr(project, 'name', None)))
+    # TODO: use default_dict to collate the ips on each subnets
+    for router_port_fixed_ip in router_port_fixed_ips:
+        router_subnet = all_subnets_by_id[router_port_fixed_ip['subnet_id']]
+        print ('    subnet "{}" ip {}'.format(router_subnet['name'], router_port_fixed_ip['ip_address']))
 
