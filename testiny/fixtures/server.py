@@ -46,7 +46,8 @@ from testiny.clients import (
 )
 from testiny.config import (
     CONF,
-    InstanceAccessEnum,
+    INSTANCE_ACCESS_FLOATING_IP,
+    INSTANCE_ACCESS_LOCAL_NETNS,
 )
 from testiny.factory import factory
 from testiny.fixtures.neutron import (
@@ -221,12 +222,10 @@ class ServerFixture(fixtures.Fixture):
     def get_access_ip(self):
         """Return the IP address used to access this instance."""
         access_method = CONF.instance_access
-        floatingip = InstanceAccessEnum.floatingip.value
-        local_netns = InstanceAccessEnum.local_netns.value
-        if access_method == floatingip:
+        if access_method == INSTANCE_ACCESS_FLOATING_IP:
             # TODO: get the external IP, not just the last one.
             return self.get_ip_address(index=-1)
-        elif access_method == local_netns:
+        elif access_method == INSTANCE_ACCESS_LOCAL_NETNS:
             # TODO: get the internal IP, not just the first one.
             return self.get_ip_address(index=0)
         else:
@@ -241,8 +240,7 @@ class ServerFixture(fixtures.Fixture):
         If the access method is 'local_netns', return the prefix to SSH
         to the instance throught the DHCP network namespace.
         """
-        local_netns = InstanceAccessEnum.local_netns.value
-        if CONF.instance_access == local_netns:
+        if CONF.instance_access == INSTANCE_ACCESS_LOCAL_NETNS:
             server = self.server.manager.get(self.server.id)
             network_name = server.networks.popitem()[0]
             neutron = get_neutron_client(

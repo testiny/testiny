@@ -42,7 +42,6 @@ class ProjectFixture(fixtures.Fixture):
     """Test fixture that creates a randomly-named project.
 
     The name is available as the 'name' property after creation.
-    The global admin user is automatically added as an admin of the project.
     """
     def _setUp(self):
         super(ProjectFixture, self)._setUp()
@@ -58,10 +57,6 @@ class ProjectFixture(fixtures.Fixture):
         self.admin_user_fixture = self.useFixture(UserFixture())
         self.admin_user = self.admin_user_fixture.user
         self.add_user_to_role(self.admin_user, "admin")
-
-        # Add global admin to the project.
-        global_admin_user = self.keystone.users.find(name=CONF.username)
-        self.add_user_to_role(global_admin_user, "admin")
 
         return self.project
 
