@@ -106,8 +106,8 @@ class ServerFixture(fixtures.Fixture):
         self.network_fixture = network_fixture
         self.instance_kwargs = kwargs
 
-    def setUp(self):
-        super(ServerFixture, self).setUp()
+    def _setUp(self):
+        super(ServerFixture, self)._setUp()
         self.setup_prerequisites()
         # TODO: Catch errors and show sensible error messages.
         # TODO: Do retries.
@@ -323,8 +323,8 @@ class IsolatedServerFixture(ServerFixture):
             network_fixture=network_fixture,
             **kwargs)
 
-    def setUp(self):
-        super(IsolatedServerFixture, self).setUp()
+    def _setUp(self):
+        super(IsolatedServerFixture, self)._setUp()
 
     def setup_prerequisites(self):
         if self.project_fixture is None:
@@ -385,8 +385,8 @@ class KeypairFixture(fixtures.Fixture):
         self.user_fixture = user_fixture
         self.project_fixture = project_fixture
 
-    def setUp(self):
-        super(KeypairFixture, self).setUp()
+    def _setUp(self):
+        super(KeypairFixture, self)._setUp()
         self.nova = get_nova_v3_client(
             user_name=self.user_fixture.name,
             project_name=self.project_fixture.name,
@@ -430,8 +430,8 @@ class FloatingIPFixture(fixtures.Fixture):
         self.user_fixture = user_fixture
         self.network_name = network_name
 
-    def setUp(self):
-        super(FloatingIPFixture, self).setUp()
+    def _setUp(self):
+        super(FloatingIPFixture, self)._setUp()
         self.nova = get_nova_v3_client(
             user_name=self.user_fixture.name,
             project_name=self.project_fixture.name,

@@ -44,8 +44,8 @@ class ProjectFixture(fixtures.Fixture):
     The name is available as the 'name' property after creation.
     The global admin user is automatically added as an admin of the project.
     """
-    def setUp(self):
-        super(ProjectFixture, self).setUp()
+    def _setUp(self):
+        super(ProjectFixture, self)._setUp()
         self.name = factory.make_string("testiny-")
         self.keystone = get_keystone_v3_client(project_name=CONF.admin_project)
         self.project = self.keystone.projects.create(

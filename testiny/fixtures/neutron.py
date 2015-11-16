@@ -49,8 +49,8 @@ class NeutronNetworkFixture(fixtures.Fixture):
         super(NeutronNetworkFixture, self).__init__()
         self.project_fixture = project_fixture
 
-    def setUp(self):
-        super(NeutronNetworkFixture, self).setUp()
+    def _setUp(self):
+        super(NeutronNetworkFixture, self)._setUp()
         self.neutron = get_neutron_client(
             project_name=self.project_fixture.name,
             user_name=self.project_fixture.admin_user.name,

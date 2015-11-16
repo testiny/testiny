@@ -39,8 +39,8 @@ class UserFixture(fixtures.Fixture):
 
     The name is available as the 'name' property after creation.
     """
-    def setUp(self):
-        super(UserFixture, self).setUp()
+    def _setUp(self):
+        super(UserFixture, self)._setUp()
         self.name = factory.make_string("testiny")
         self.keystone = get_keystone_v3_client(project_name=CONF.admin_project)
         self.password = factory.make_string("password")
