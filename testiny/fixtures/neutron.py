@@ -58,8 +58,8 @@ class NeutronNetworkFixture(fixtures.Fixture):
         subnet = random.randint(11, 255)
         cidr = CONF.network['cidr'].format(subnet=subnet)
         # TODO: handle clashes and retry.
-        self.net_name = factory.make_obj_name("net")
-        self.sub_name = factory.make_obj_name("sub")
+        self.net_name = factory.make_obj_name("network")
+        self.sub_name = factory.make_obj_name("subnet")
         self.network = self.neutron.create_network(
             {"network": dict(name=self.net_name)})
         network_id = self.network["network"]["id"]
@@ -108,7 +108,7 @@ class RouterFixture(fixtures.Fixture):
             user_name=self.project_fixture.admin_user.name,
             password=self.project_fixture.admin_user_fixture.password)
         # TODO: handle clashes and retry.
-        self.name = factory.make_obj_name("rout")
+        self.name = factory.make_obj_name("router")
         self.router = self.neutron.create_router(
             {'router': {'name': self.name, 'admin_state_up': True}})
 

@@ -124,7 +124,7 @@ class ServerFixture(fixtures.Fixture):
             user_name=self.user_fixture.name,
             project_name=self.project_fixture.name,
             password=self.user_fixture.password)
-        self.name = factory.make_obj_name('inst')
+        self.name = factory.make_obj_name('instance')
         self.flavor = self.nova.flavors.find(
             name=CONF.fast_image['flavor_name'])
         self.image = self.nova.images.find(name=CONF.fast_image['image_name'])
