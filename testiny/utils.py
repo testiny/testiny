@@ -64,14 +64,14 @@ def retry(result_checker, num_attempts=4, delay=1):
     return new_retry
 
 
-def wait_until(predictate, timeout=60, timeout_msg=''):
+def wait_until(predictate, timeout=60, timeout_msg='', delay=0.25):
     """Wait until a predicate is true."""
     start = datetime.datetime.utcnow()
     finish = start + datetime.timedelta(seconds=timeout)
     while datetime.datetime.utcnow() < finish:
         if predictate():
             return
-        time.sleep(1)
+        time.sleep(delay)
     raise Exception("Timed out %s" % timeout_msg)
 
 
