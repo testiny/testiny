@@ -59,6 +59,7 @@ from testiny.fixtures.project import ProjectFixture
 from testiny.fixtures.user import UserFixture
 from testiny.utils import (
     check_network_namespace,
+    parse_ping_output,
     retry,
 )
 from testtools.content import text_content
@@ -106,6 +107,7 @@ class ServerFixture(fixtures.Fixture):
         self.user_fixture = user_fixture
         self.network_fixture = network_fixture
         self.instance_kwargs = kwargs
+        self._init_background_ping()
 
     def _setUp(self):
         super(ServerFixture, self)._setUp()
@@ -254,6 +256,24 @@ class ServerFixture(fixtures.Fixture):
         else:
             return ''
 
+    def _run_ssh_command(self, command, user_name, key_file_name):
+        ip = self.get_access_ip()
+        prefix = self._get_access_ssh_prefix_command()
+        ssh_command = prefix.split() + [
+            'ssh',
+            '-o', 'UserKnownHostsFile=/dev/null',
+            '-o', 'StrictHostKeyChecking=no',
+            '-i', key_file_name,
+            "%s@%s" % (user_name, ip),
+            command,
+        ]
+        ssh = subprocess.Popen(
+            ssh_command,
+            shell=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+        return ssh
+
     @retry(result_checker=should_retry_command, num_attempts=5, delay=5)
     def run_command(self, command, user_name, key_file_name, timeout=60):
         """Use SSH to run the specified command on this server.
@@ -264,20 +284,7 @@ class ServerFixture(fixtures.Fixture):
         :return: (stdout, stderr, return_code) from the command's process.
             stdout and stderr are a list of lines as returned by readlines().
         """
-        ip = self.get_access_ip()
-
-        prefix = self._get_access_ssh_prefix_command()
-        ssh_command = prefix.split() + [
-            'ssh',
-            '-o', 'UserKnownHostsFile=/dev/null',
-            '-o', 'StrictHostKeyChecking=no',
-            '-i', key_file_name, "%s@%s" % (user_name, ip), command
-        ]
-        ssh = subprocess.Popen(
-            ssh_command,
-            shell=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
+        ssh = self._run_ssh_command(command, user_name, key_file_name)
 
         # Python 3 has a timeout parameter for subprocess, but we want
         # to remain compatible with Python 2 for now.
@@ -291,6 +298,63 @@ class ServerFixture(fixtures.Fixture):
                     ssh.returncode)
 
         raise TimeoutError
+
+    def _init_background_ping(self):
+        self._background_ping = {}
+
+    def _set_background_ping(self, ip, ssh, user_name, key_file_name):
+        self._background_ping[ip] = {
+            'ssh': ssh,
+            'user_name': user_name,
+            'key_file_name': key_file_name,
+        }
+
+    def _has_background_ping(self, ip):
+        return ip in self._background_ping
+
+    def _pop_background_ping(self, ip):
+        ssh_dict = self._background_ping.pop(ip)
+        return (
+            ssh_dict['ssh'], ssh_dict['user_name'],
+            ssh_dict['key_file_name'],
+        )
+
+    def start_background_ping(self, ip, user_name, key_file_name):
+        """Ping continuously the given IP in the background.
+
+        The same server can ping different IPs at the same time.
+
+        This is meant to test the connectivity between the pinging
+        machine and an other machine while some other action is
+        being performed.
+        Use `stop_background_ping` to stop the pinging and get back
+        the connectivity statistics.
+        """
+        if self._has_background_ping(ip):
+            raise Exception(
+                "Existing background ping process for this ip (%s)" % ip)
+        command = 'ping -W 2 -q %s' % ip
+        ssh = self._run_ssh_command(command, user_name, key_file_name)
+        self._set_background_ping(ip, ssh, user_name, key_file_name)
+
+    def stop_background_ping(self, ip):
+        """Stop the background ping for the given IP.
+
+        Return a tuple: (number of packets sent, percentage of
+        packet loss).
+        """
+        if not self._has_background_ping(ip):
+            raise Exception(
+                "No background ping process for ip (%s)" % ip)
+        command = (
+            "ps -ef | grep ping | grep %s | grep -v grep | "
+            "awk '{print $1}' | xargs kill -2"
+            % ip
+        )
+        ssh, user_name, key_file_name = self._pop_background_ping(ip)
+        self.run_command(command, user_name, key_file_name)
+        out, err = ssh.communicate()
+        return parse_ping_output(out)
 
 
 class IsolatedServerFixture(ServerFixture):

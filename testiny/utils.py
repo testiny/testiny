@@ -28,13 +28,17 @@ __metaclass__ = type
 __all__ = [
     "check_network_namespace",
     "list_network_namespaces",
+    "parse_ping_output",
     "retry",
+    "synchronized",
     "wait_until",
     ]
 
 import datetime
 from functools import wraps
+import re
 import subprocess
+import threading
 import time
 
 
@@ -85,3 +89,27 @@ def check_network_namespace(netns):
     """Raise an exception if a network namespace doesn't exist."""
     if netns not in list_network_namespaces():
         raise Exception("Namespace %s not in machine namespaces.")
+
+
+def parse_ping_output(ping_output):
+    """Parse ping output.
+
+    Returns a tuple with the number of packets sent and the percentage of
+    packet loss from a ping output."""
+    match = re.search(
+        '(\d*) packets transmitted, .* ([\d\.]*)\% packet loss',
+        ping_output)
+    return match.groups() if match is not None else None
+
+
+def synchronized(func):
+    """Decorator to make a function threadsafe."""
+    lock = threading.Lock()
+
+    def wrap(*args, **kwargs):
+        lock.acquire()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            lock.release()
+    return wrap
