@@ -63,7 +63,7 @@ class TestBringUpInstances(TestinyTestCase):
             IPAddress(ip), IPNetwork(cidr),
             "Internal IP of server is not in the expected subnet")
 
-    def test_server_gets_files_throught_metadata(self):
+    def test_server_gets_files_through_metadata(self):
         # Check that a server comes up with the files configured via the
         # the metadata service.
         self.skipTest("This currently fails on PAS2: investigate")
@@ -107,6 +107,7 @@ class TestPingInstances(TestinyTestCase):
             project_fixture=project_fixture,
             user_fixture=user_fixture,
         ))
+        server_fixture.wait_for_status("ACTIVE", "ERROR")
 
         self.allow_icmp_traffic(server_fixture.project_fixture)
 
@@ -115,11 +116,6 @@ class TestPingInstances(TestinyTestCase):
             network2_fixture.subnet["subnet"]["id"])
 
         # Create a second server in the second network.
-        # TODO: figure out why starting two servers in sequence quickly
-        # results in them timing out with 'Error: Failed to launch instance:
-        # Please try again later [Error: Virtual Interface creation
-        # failed].'.
-        time.sleep(10)
         server2_fixture = self.useFixture(
             ServerFixture(
                 project_fixture,
@@ -130,13 +126,11 @@ class TestPingInstances(TestinyTestCase):
         ip2 = server2_fixture.get_ip_address(
             network2_fixture.network["network"]["name"], 0)
 
-        # Wait for the second server to come up.
-        # TODO: Poll on something instead of waiting.
-        time.sleep(10)
-
         # Ping private IP of second server from first server.
+        # The ping options only look for one ping reponse, waiting for
+        # up to 60 seconds.
         out, err, retcode = server_fixture.run_command(
-            command='ping -c 5 -W 2 -q %s' % ip2,
+            command='ping -c 1 -w 60 -q %s' % ip2,
             user_name=CONF.fast_image['user_name'],
             key_file_name=server_fixture.keypair_fixture.private_key_file,
         )
