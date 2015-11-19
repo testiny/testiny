@@ -27,8 +27,6 @@ str = None
 __metaclass__ = type
 __all__ = []
 
-import time
-
 from netaddr import (
     IPAddress,
     IPNetwork,
@@ -66,7 +64,6 @@ class TestBringUpInstances(TestinyTestCase):
     def test_server_gets_files_through_metadata(self):
         # Check that a server comes up with the files configured via the
         # the metadata service.
-        self.skipTest("This currently fails on PAS2: investigate")
 
         # Inject a random file into a new instance.
         random_filename = "/tmp/%s" % self.factory.make_string("filename-")
