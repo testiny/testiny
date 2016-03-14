@@ -34,8 +34,8 @@ __all__ = [
     ]
 
 from keystoneclient import (
+    client,
     session,
-    v3 as keystone_v3,
 )
 from keystoneclient.auth import identity
 from neutronclient.neutron import client as neutron_client
@@ -79,9 +79,6 @@ def get_or_create_session(user_name=None, project_name=None,
     return sess
 
 
-# TODO: Allow client libraries to work out api versionings and remove
-# hard-coded versions from here where possible.
-
 def get_keystone_v3_client(user_name=None, project_name=None,
                            user_domain_name='default',
                            project_domain_name='default', password=None):
@@ -89,7 +86,7 @@ def get_keystone_v3_client(user_name=None, project_name=None,
         user_name=user_name, project_name=project_name,
         user_domain_name=user_domain_name,
         project_domain_name=project_domain_name, password=password)
-    return keystone_v3.Client(version='v3', session=sess)
+    return client.Client(version='v3', session=sess)
 
 
 def get_nova_v3_client(user_name=None, project_name=None,
