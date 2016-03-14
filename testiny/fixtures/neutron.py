@@ -31,6 +31,8 @@ __all__ = [
     "SecurityGroupRuleFixture",
     ]
 
+from copy import copy
+
 import fixtures
 from testiny.clients import get_neutron_client
 from testiny.config import CONF
@@ -176,7 +178,9 @@ class RouterFixture(fixtures.Fixture):
 
     def delete_router(self):
         # Delete interfaces first.
-        for subnet_id in self.subnet_ids:
+        # Make a copy of the list since it's amended by
+        # remove_interface_router as the IDs become available again.
+        for subnet_id in copy(self.subnet_ids):
             self.remove_interface_router(subnet_id)
         # Clear gateway.
         self.remove_gateway_router()
